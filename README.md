@@ -1,7 +1,6 @@
-Help me design the programming language `XORM` (`⊕M`).
+Programming language `XORM` (`⊕M`)
 `XORM` is just xor and macros.
 There also exists 2 abstract 8-bit registers: `R1` and `R0`.
 Macros are the only abstraction allowed.
 There is exactly one runtime instruction, xor (⊕):
   R0 = R0 ⊕ R1
-A lisp (racket) can be used to implement macros
