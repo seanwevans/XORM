@@ -1,6 +1,3 @@
-Programming language `XORM` (`⊕M`)
-`XORM` is just xor and macros.
-There also exists 2 abstract 8-bit registers: `R1` and `R0`.
+`XORM` (`⊕M`) is just xor, macros and 2 abstract 8-bit registers: `R1` and `R0`.
 Macros are the only abstraction allowed.
-There is exactly one runtime instruction, xor (⊕):
-  R0 = R0 ⊕ R1
+XOR(⊕) is the only runtime instruction available, i.e. R0 ← R0 ⊕ R1
