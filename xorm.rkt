@@ -1,4 +1,6 @@
 #lang racket
+(require rnrs/arithmetic/bitwise-6)
+(require (for-syntax syntax/parse))
 
 ;; ============================================================================
 ;; XORM DSL
@@ -15,6 +17,10 @@
 ;; the XORM program
 (define xorm-program '())
 
+;; register constants used by macros
+(define R0 'R0)
+(define R1 'R1)
+
 ;; append an instruction to the program
 (define (emit inst)
   (set! xorm-program (append xorm-program (list inst))))
@@ -30,9 +36,13 @@
                  (set! R0 (bitwise-xor R0 R1))]
                 [(and (list? inst)
                       (equal? (first inst) '←))
-                 (set! R1 (second inst))]
+                 (let ([v (second inst)])
+                   (cond
+                     [(eq? v 'R0) (set! R1 R0)]
+                     [(eq? v 'R1) (set! R1 R1)]
+                     [else (set! R1 v)]))]
                 [else (error "???" inst)]))
-            prog)  
+            prog)
   (list R0 R1))
 
 ;; ⊕: The only runtime instruction: R0 ← R0 ⊕ R1
@@ -174,14 +184,17 @@
        (xor)          ; R0 = R0 ⊕ R1
        (← R0)         ; Store A ⊕ B
        (← R1)         ; Restore A & B
-       (← << R1)      ; Shift left (multiply by 2)
+       (← (<< R1))      ; Shift left (multiply by 2)
        (xor))]))      ; R0 = (A ⊕ B) ⊕ ((A & B) << 1)
 
 ;; Shift R1 left by 1 bit
-(define-syntax <<
-  (syntax-rules ()
+(define-syntax (<< stx)
+  (syntax-parse stx
     [(_ val)
-      (bitwise-and (bitwise-arithmetic-shift-left val 1) 255)]))
+     (define v (syntax-e #'val))
+     (if (number? v)
+         (datum->syntax stx (bitwise-and (arithmetic-shift v 1) 255))
+         #'val)]))
 
 ;; shift-left-r0: Shift R0 left by 1 bit, result in R0
 (define-syntax shift-left-r0
@@ -189,7 +202,7 @@
     [(_)
      (begin
        (copy-to-r1)    ; R1 = R0
-       (← << R1)       ; R1 = R0 << 1
+       (← (<< R1))       ; R1 = R0 << 1
        (set-r0 0)      ; Clear R0
        (← R1)          ; Set R1 to shifted value
        (xor))]))       ; R0 = 0 ⊕ R1 = R1
@@ -200,16 +213,19 @@
     [(_)
      (begin
        (copy-to-r1)    ; R1 = R0
-       (← >> R1)       ; R1 = R0 >> 1
+       (← (>> R1))       ; R1 = R0 >> 1
        (set-r0 0)      ; Clear R0
        (← R1)          ; Set R1 to shifted value
        (xor))]))       ; R0 = 0 ⊕ R1 = R1
 
 ;; Shift R1 right by 1 bit
-(define-syntax >>
-  (syntax-rules ()
+(define-syntax (>> stx)
+  (syntax-parse stx
     [(_ val)
-      (bitwise-arithmetic-shift-right val 1)]))
+     (define v (syntax-e #'val))
+     (if (number? v)
+         (datum->syntax stx (arithmetic-shift v -1))
+         #'val)]))
 
 ;; Testing
 (do (set-r0 42))     ; Set R0 to 42
