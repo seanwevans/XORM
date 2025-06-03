@@ -141,8 +141,9 @@
     (← 255)     ; Set R1 to 255
     (⊕)))       ; XOR into R0 (dec-r0)
 
-(displayln "Original XORM program:")
-(for-each displayln example-program)
+(module+ main
+  (displayln "Original XORM program:")
+  (for-each displayln example-program)
 
-(displayln "\nDecompiled high-level macros:")
-(pretty-print-decompiled (decompile-xorm example-program))
+  (displayln "\nDecompiled high-level macros:")
+  (pretty-print-decompiled (decompile-xorm example-program)))
