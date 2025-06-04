@@ -1,5 +1,10 @@
 #lang racket
+
+(require rnrs/arithmetic/bitwise-6)
+(require (for-syntax syntax/parse))
+
 (provide (all-defined-out))
+
 
 ;; ============================================================================
 ;; XORM DSL
@@ -16,6 +21,11 @@
 ;; the XORM program
 (define xorm-program '())
 
+
+;; register constants used by macros
+(define R0 'R0)
+(define R1 'R1)
+
 ;; Export DSL constructs
 (provide
   xorm-program emit run-xorm
@@ -27,6 +37,7 @@
 ;; reset the recorded program
 (define (reset-program!)
   (set! xorm-program '()))
+
 
 ;; append an instruction to the program
 (define (emit inst)
@@ -49,7 +60,7 @@
                    [(eq? val 'R1) (set! R1 R1)]
                    [else (set! R1 val)])]
                 [else (error "???" inst)]))
-            prog)  
+            prog)
   (list R0 R1))
 
 ;; ⊕: The only runtime instruction: R0 ← R0 ⊕ R1
@@ -189,16 +200,19 @@
        (← 'R0)        ; Store A & B
        (← 'R1)        ; Get original R1
        (xor)          ; R0 = R0 ⊕ R1
-       (← 'R0)        ; Store A ⊕ B
-       (← 'R1)        ; Restore A & B
-      (← (<< R1))     ; Shift left (multiply by 2)
+       (← R0)         ; Store A ⊕ B
+       (← R1)         ; Restore A & B
+       (← (<< R1))    ; Shift left (multiply by 2)
        (xor))]))      ; R0 = (A ⊕ B) ⊕ ((A & B) << 1)
 
 ;; Shift R1 left by 1 bit
-(define-syntax <<
-  (syntax-rules ()
+(define-syntax (<< stx)
+  (syntax-parse stx
     [(_ val)
-      (bitwise-and (bitwise-arithmetic-shift-left val 1) 255)]))
+     (define v (syntax-e #'val))
+     (if (number? v)
+         (datum->syntax stx (bitwise-and (arithmetic-shift v 1) 255))
+         #'val)]))
 
 ;; shift-left-r0: Shift R0 left by 1 bit, result in R0
 (define-syntax shift-left-r0
@@ -223,10 +237,13 @@
        (xor))]))       ; R0 = 0 ⊕ R1 = R1
 
 ;; Shift R1 right by 1 bit
-(define-syntax >>
-  (syntax-rules ()
+(define-syntax (>> stx)
+  (syntax-parse stx
     [(_ val)
-      (bitwise-arithmetic-shift-right val 1)]))
+     (define v (syntax-e #'val))
+     (if (number? v)
+         (datum->syntax stx (arithmetic-shift v -1))
+         #'val)]))
 
 
 ;; Example usage when running this file directly
