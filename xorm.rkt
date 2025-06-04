@@ -1,6 +1,10 @@
 #lang racket
+
 (require rnrs/arithmetic/bitwise-6)
 (require (for-syntax syntax/parse))
+
+(provide (all-defined-out))
+
 
 ;; ============================================================================
 ;; XORM DSL
@@ -17,9 +21,23 @@
 ;; the XORM program
 (define xorm-program '())
 
+
 ;; register constants used by macros
 (define R0 'R0)
 (define R1 'R1)
+
+;; Export DSL constructs
+(provide
+  xorm-program emit run-xorm
+  xor ← set-r0 do swap clear-r0 clear-r1 inc-r0 dec-r0
+  copy-to-r1 not-r0 and-r0-r1 or-r0-r1 add-r0-r1
+  shift-left-r0 shift-right-r0 << >>
+  reset-program!)
+
+;; reset the recorded program
+(define (reset-program!)
+  (set! xorm-program '()))
+
 
 ;; append an instruction to the program
 (define (emit inst)
@@ -36,11 +54,11 @@
                  (set! R0 (bitwise-xor R0 R1))]
                 [(and (list? inst)
                       (equal? (first inst) '←))
-                 (let ([v (second inst)])
-                   (cond
-                     [(eq? v 'R0) (set! R1 R0)]
-                     [(eq? v 'R1) (set! R1 R1)]
-                     [else (set! R1 v)]))]
+                 (define val (second inst))
+                 (cond
+                   [(eq? val 'R0) (set! R1 R0)]
+                   [(eq? val 'R1) (set! R1 R1)]
+                   [else (set! R1 val)])]
                 [else (error "???" inst)]))
             prog)
   (list R0 R1))
@@ -83,9 +101,9 @@
      (begin
        (xor)        ; R0 = R0 ⊕ R1
        (← 0)        ; R1 = 0
-       (← R0)       ; Set R1 to current R0
+       (← 'R0)      ; Set R1 to current R0
        (xor)        ; R0 = R0 ⊕ R0 = 0
-       (← R1)       ; Restore original R1 to R1
+       (← 'R1)      ; Restore original R1 to R1
        (xor))]))    ; R0 = 0 ⊕ R1 = original R1
 
 ;; clear-r0: Set R0 to 0
@@ -129,7 +147,7 @@
      (begin
        (← 0)      ; Set R1 to 0
        (xor)      ; R0 = R0 ⊕ 0 = R0
-       (← R0))]))  ; Set R1 to R0
+       (← 'R0))]))  ; Set R1 to R0
 
 ;; not-r0: Bitwise NOT of R0
 (define-syntax not-r0
@@ -160,17 +178,17 @@
      (begin
        ;; Save original R0 and R1
        (copy-to-r1)  ; Store R0 in R1
-       (← R1)        ; Get original R1
+       (← 'R1)       ; Get original R1
        ;; Compute A ⊕ B
        (xor)         ; R0 = R0 ⊕ R1
        ;; Save A ⊕ B
-       (← R0)        ; Save A ⊕ B in R1
+       (← 'R0)       ; Save A ⊕ B in R1
        ;; Compute A & B
-       (← R0)        ; R1 = R0 (original)
+       (← 'R0)       ; R1 = R0 (original)
        (and-r0-r1)   ; R0 = R0 & R1
        ;; Final step: (A ⊕ B) ⊕ (A & B)
-       (← R0)        ; Set R1 to A & B
-       (← R0)        ; Set R1 to A ⊕ B
+       (← 'R0)       ; Set R1 to A & B
+       (← 'R0)       ; Set R1 to A ⊕ B
        (xor))]))     ; R0 = (A ⊕ B) ⊕ (A & B) = A | B
 
 ;; add-r0-r1: Add R1 to R0, result in R0 (simple 8-bit addition)
@@ -179,12 +197,12 @@
     [(_)
      (begin
        (and-r0-r1)    ; R0 = R0 & R1 (get common 1 bits)
-       (← R0)         ; Store A & B
-       (← R1)         ; Get original R1
+       (← 'R0)        ; Store A & B
+       (← 'R1)        ; Get original R1
        (xor)          ; R0 = R0 ⊕ R1
        (← R0)         ; Store A ⊕ B
        (← R1)         ; Restore A & B
-       (← (<< R1))      ; Shift left (multiply by 2)
+       (← (<< R1))    ; Shift left (multiply by 2)
        (xor))]))      ; R0 = (A ⊕ B) ⊕ ((A & B) << 1)
 
 ;; Shift R1 left by 1 bit
@@ -202,9 +220,9 @@
     [(_)
      (begin
        (copy-to-r1)    ; R1 = R0
-       (← (<< R1))       ; R1 = R0 << 1
+       (← (<< R1))     ; R1 = R0 << 1
        (set-r0 0)      ; Clear R0
-       (← R1)          ; Set R1 to shifted value
+       (← 'R1)         ; Set R1 to shifted value
        (xor))]))       ; R0 = 0 ⊕ R1 = R1
 
 ;; shift-right-r0: Shift R0 right by 1 bit, result in R0
@@ -213,9 +231,9 @@
     [(_)
      (begin
        (copy-to-r1)    ; R1 = R0
-       (← (>> R1))       ; R1 = R0 >> 1
+       (← (>> R1))     ; R1 = R0 >> 1
        (set-r0 0)      ; Clear R0
-       (← R1)          ; Set R1 to shifted value
+       (← 'R1)         ; Set R1 to shifted value
        (xor))]))       ; R0 = 0 ⊕ R1 = R1
 
 ;; Shift R1 right by 1 bit
@@ -227,18 +245,20 @@
          (datum->syntax stx (arithmetic-shift v -1))
          #'val)]))
 
-;; Testing
-(do (set-r0 42))     ; Set R0 to 42
-(do (← 13))          ; Set R1 to 13
-(do (add-r0-r1))     ; R0 = 42 + 13 = 55
-(do (inc-r0))        ; R0 = 55 + 1 = 56
-(do (dec-r0))        ; R0 = 56 - 1 = 55
-(do (← 127))         ; Set R1 to 127
-(do (and-r0-r1))     ; R0 = 55 & 127 = 55
-(do (← 72))          ; Set R1 to 72
-(do (or-r0-r1))      ; R0 = 55 | 72 = 127
-(do (shift-left-r0)) ; R0 = 127 << 1 = 254
-(do (shift-right-r0)); R0 = 254 >> 1 = 127
-(do (swap))          ; Swap R0 and R1, R0 = 72, R1 = 127
 
-(list "(0 0) ↦" xorm-program '↦ (run-xorm xorm-program))
+;; Example usage when running this file directly
+(module+ main
+  (do (set-r0 42))     ; Set R0 to 42
+  (do (← 13))          ; Set R1 to 13
+  (do (add-r0-r1))     ; R0 = 42 + 13 = 55
+  (do (inc-r0))        ; R0 = 55 + 1 = 56
+  (do (dec-r0))        ; R0 = 56 - 1 = 55
+  (do (← 127))         ; Set R1 to 127
+  (do (and-r0-r1))     ; R0 = 55 & 127 = 55
+  (do (← 72))          ; Set R1 to 72
+  (do (or-r0-r1))      ; R0 = 55 | 72 = 127
+  (do (shift-left-r0)) ; R0 = 127 << 1 = 254
+  (do (shift-right-r0)); R0 = 254 >> 1 = 127
+  (do (swap))          ; Swap R0 and R1, R0 = 72, R1 = 127
+
+  (displayln (list "(0 0) ↦" xorm-program '↦ (run-xorm xorm-program))))
