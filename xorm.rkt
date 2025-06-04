@@ -1,4 +1,5 @@
 #lang racket
+(provide (all-defined-out))
 
 ;; ============================================================================
 ;; XORM DSL
@@ -211,18 +212,19 @@
     [(_ val)
       (bitwise-arithmetic-shift-right val 1)]))
 
-;; Testing
-(do (set-r0 42))     ; Set R0 to 42
-(do (← 13))          ; Set R1 to 13
-(do (add-r0-r1))     ; R0 = 42 + 13 = 55
-(do (inc-r0))        ; R0 = 55 + 1 = 56
-(do (dec-r0))        ; R0 = 56 - 1 = 55
-(do (← 127))         ; Set R1 to 127
-(do (and-r0-r1))     ; R0 = 55 & 127 = 55
-(do (← 72))          ; Set R1 to 72
-(do (or-r0-r1))      ; R0 = 55 | 72 = 127
-(do (shift-left-r0)) ; R0 = 127 << 1 = 254
-(do (shift-right-r0)); R0 = 254 >> 1 = 127
-(do (swap))          ; Swap R0 and R1, R0 = 72, R1 = 127
+;; Example usage when running this file directly
+(module+ main
+  (do (set-r0 42))     ; Set R0 to 42
+  (do (← 13))          ; Set R1 to 13
+  (do (add-r0-r1))     ; R0 = 42 + 13 = 55
+  (do (inc-r0))        ; R0 = 55 + 1 = 56
+  (do (dec-r0))        ; R0 = 56 - 1 = 55
+  (do (← 127))         ; Set R1 to 127
+  (do (and-r0-r1))     ; R0 = 55 & 127 = 55
+  (do (← 72))          ; Set R1 to 72
+  (do (or-r0-r1))      ; R0 = 55 | 72 = 127
+  (do (shift-left-r0)) ; R0 = 127 << 1 = 254
+  (do (shift-right-r0)); R0 = 254 >> 1 = 127
+  (do (swap))          ; Swap R0 and R1, R0 = 72, R1 = 127
 
-(list "(0 0) ↦" xorm-program '↦ (run-xorm xorm-program))
+  (displayln (list "(0 0) ↦" xorm-program '↦ (run-xorm xorm-program))))

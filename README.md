@@ -5,6 +5,23 @@ single runtime instruction `⊕` (`xor`).  Everything else is built using
 macros that expand to that primitive instruction.  Running a program
 produces a list of the final values of `R0` and `R1`.
 
+`XORM` (`⊕M`) is just xor, macros and 2 abstract 8-bit registers: `R1` and `R0`.
+Macros are the only abstraction allowed.
+XOR(⊕) is the only runtime instruction available, i.e. R0 ← R0 ⊕ R1
+
+To use the DSL in another Racket file:
+
+```racket
+(require "xorm.rkt")
+
+(module+ main
+  (do (set-r0 42))
+  (do (← 13))
+  (displayln (run-xorm xorm-program)))
+```
+
+
+
 ## Setup
 
 1. Install [Racket](https://racket-lang.org/) (version 8 or newer).
