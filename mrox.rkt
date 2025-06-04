@@ -1,5 +1,7 @@
 #lang racket
 
+(require racket/list)
+
 ;; ============================================================================
 ;; 🐂 MR. OX 🐂 - The XORM decompiler
 ;;
