@@ -24,7 +24,8 @@ To use the DSL in another Racket file:
 
 ## Setup
 
-1. Install [Racket](https://racket-lang.org/) (version 8 or newer).
+1. Install [Racket](https://racket-lang.org/) (version 8 or newer).  The
+   `raco` command from this installation is used to run the test suite.
 2. Clone this repository and enter the directory.
 
 ```
@@ -34,6 +35,25 @@ $ cd XORM
 
 No additional packages are required – all files run with the default
 Racket distribution.
+
+## Macros
+
+The language is built entirely from macros that expand to the primitive
+`xor` instruction.  The most important forms are:
+
+- `xor` – perform `R0 ← R0 ⊕ R1`.
+- `← c` – set `R1` to the constant or register `c`.
+- `set-r0 c` – load the constant `c` into `R0`.
+- `do` – evaluate a sequence of operations.
+- `swap` – exchange the values of `R0` and `R1`.
+- `clear-r0` / `clear-r1` – set the respective register to zero.
+- `inc-r0` / `dec-r0` – increment or decrement `R0`.
+- `copy-to-r1` – copy the current value of `R0` into `R1`.
+- `not-r0` – bitwise complement of `R0`.
+- `and-r0-r1` / `or-r0-r1` – bitwise logic with the result placed in `R0`.
+- `add-r0-r1` – add `R1` to `R0` (8‑bit arithmetic).
+- `shift-left-r0` / `shift-right-r0` – shift `R0` one bit left or right.
+- `<<` / `>>` – compile‑time helpers that shift numeric constants.
 
 ## Example usage
 
@@ -63,15 +83,20 @@ $ racket mrox.rkt
 
 ## Running the tests
 
-Both `xorm.rkt` and `mrox.rkt` contain example programs at the bottom of
-their files.  Running them with `racket` acts as a simple test that the
-language and decompiler behave as expected.  Execute:
+An automated test suite lives in the `tests` directory.  After installing
+Racket you can execute all tests with:
+
+```
+$ raco test tests
+```
+
+Running `xorm.rkt` and `mrox.rkt` directly is still useful for quick
+experimentation:
 
 ```
 $ racket xorm.rkt
 $ racket mrox.rkt
 ```
 
-The output should display the generated instruction list and the final
-register state for `xorm.rkt`, and a pretty‑printed decompilation for
-`mrox.rkt`.
+The first command prints the generated instruction list and final register
+state; the second shows a decompilation of that program.
