@@ -121,24 +121,31 @@
      (begin
        (← 0))]))  ; Set R1 to 0
 
-;; inc-r0: Increment R0 by 1
+;; inc-r0: Attempt to increment R0 by 1
+;;
+;; With only XOR and constant loads available this macro simply toggles the
+;; lowest bit of R0.  It does **not** implement a correct increment operation
+;; for arbitrary values.
 (define-syntax inc-r0
   (syntax-rules ()
     [(_)
      (begin
-       (← 1)      ; Set R1 to 1
-       (xor))]))  ; R0 = R0 ⊕ 1 (Flips least significant bit, effectively adding 1 if it's 0)
+       (← 1)      ; load constant 1
+       (xor))]))  ; toggles bit 0 of R0
 
-;; dec-r0: Decrement R0 by 1
+;; dec-r0: Attempt to decrement R0 by 1
+;;
+;; This sequence is the inverse of `inc-r0` and is likewise incorrect for
+;; general subtraction.  Only XOR operations and constant loads are used.
 (define-syntax dec-r0
   (syntax-rules ()
     [(_)
      (begin
-       (← 255)    ; Set R1 to 255 (all 1s)
-       (xor)      ; R0 = R0 ⊕ 255 (flips all bits)
-       (inc-r0)   ; Add 1 to flipped R0
-       (← 255)    ; Set R1 to 255 again
-       (xor))]))  ; Flip all bits back, giving us R0-1
+       (← 255)    ; flip all bits
+       (xor)
+       (inc-r0)   ; try to add one to the inverted value
+       (← 255)
+       (xor))]))  ; flip back
 
 ;; copy-to-r1: Copy value from R0 to R1
 (define-syntax copy-to-r1
@@ -157,53 +164,55 @@
        (← 255)    ; Set R1 to 255 (all 1s)
        (xor))]))  ; R0 = R0 ⊕ 255 (flips all bits)
 
-;; and-r0-r1: Bitwise AND of R0 and R1, result in R0
-;; Using De Morgan's law: A & B = ¬(¬A | ¬B) = ¬(¬A ⊕ B ⊕ ¬B)
+;; and-r0-r1: Placeholder for a bitwise AND
+;;
+;; The XORM machine cannot compute a real AND because XOR is linear over the
+;; register bits.  The following sequence merely manipulates the registers with
+;; XOR and constant loads without producing a correct AND result.
 (define-syntax and-r0-r1
   (syntax-rules ()
     [(_)
      (begin
-       ;; Save R1
-       (copy-to-r1)  ; R1 = R0
-       ;; Prepare for AND operation
-       (not-r0)      ; R0 = ~R0
-       (xor)         ; R0 = ~R0 ⊕ R1
-       (not-r0))]))  ; R0 = ~(~R0 ⊕ R1) = R0 & R1
+       (copy-to-r1)
+       (not-r0)
+       (xor)
+       (not-r0))]))
 
-;; or-r0-r1: Bitwise OR of R0 and R1, result in R0
-;; Using the identity: A | B = A ⊕ B ⊕ (A & B)
+;; or-r0-r1: Placeholder for a bitwise OR
+;;
+;; Like `and-r0-r1`, this macro cannot perform a true OR with only XOR
+;; available.  It keeps to the XOR/constant restriction but the computed value
+;; does not match a real OR operation.
 (define-syntax or-r0-r1
   (syntax-rules ()
     [(_)
      (begin
-       ;; Save original R0 and R1
-       (copy-to-r1)  ; Store R0 in R1
-       (← 'R1)       ; Get original R1
-       ;; Compute A ⊕ B
-       (xor)         ; R0 = R0 ⊕ R1
-       ;; Save A ⊕ B
-       (← 'R0)       ; Save A ⊕ B in R1
-       ;; Compute A & B
-       (← 'R0)       ; R1 = R0 (original)
-       (and-r0-r1)   ; R0 = R0 & R1
-       ;; Final step: (A ⊕ B) ⊕ (A & B)
-       (← 'R0)       ; Set R1 to A & B
-       (← 'R0)       ; Set R1 to A ⊕ B
-       (xor))]))     ; R0 = (A ⊕ B) ⊕ (A & B) = A | B
+       (copy-to-r1)
+       (← 'R1)
+       (xor)
+       (← 'R0)
+       (← 'R0)
+       (and-r0-r1)
+       (← 'R0)
+       (← 'R0)
+       (xor))]))
 
-;; add-r0-r1: Add R1 to R0, result in R0 (simple 8-bit addition)
+;; add-r0-r1: Attempt at an adder
+;;
+;; This follows the same XOR-only approach and does not implement a real
+;; addition.  Carry information is lost, so results deviate from a proper sum.
 (define-syntax add-r0-r1
   (syntax-rules ()
     [(_)
      (begin
-       (and-r0-r1)    ; R0 = R0 & R1 (get common 1 bits)
-       (← 'R0)        ; Store A & B
-       (← 'R1)        ; Get original R1
-       (xor)          ; R0 = R0 ⊕ R1
-       (← R0)         ; Store A ⊕ B
-       (← R1)         ; Restore A & B
-       (← (<< R1))    ; Shift left (multiply by 2)
-       (xor))]))      ; R0 = (A ⊕ B) ⊕ ((A & B) << 1)
+       (and-r0-r1)
+       (← 'R0)
+       (← 'R1)
+       (xor)
+       (← R0)
+       (← R1)
+       (← (<< R1))
+       (xor))]))
 
 ;; Shift R1 left by 1 bit
 (define-syntax (<< stx)
@@ -214,27 +223,33 @@
          (datum->syntax stx (bitwise-and (arithmetic-shift v 1) 255))
          #'val)]))
 
-;; shift-left-r0: Shift R0 left by 1 bit, result in R0
+;; shift-left-r0: Dummy left shift
+;;
+;; True shifting cannot be achieved with XOR alone.  This macro merely
+;; scrambles the registers using XOR and constants.
 (define-syntax shift-left-r0
   (syntax-rules ()
     [(_)
      (begin
-       (copy-to-r1)    ; R1 = R0
-       (← (<< R1))     ; R1 = R0 << 1
-       (set-r0 0)      ; Clear R0
-       (← 'R1)         ; Set R1 to shifted value
-       (xor))]))       ; R0 = 0 ⊕ R1 = R1
+       (copy-to-r1)
+       (← (<< R1))
+       (set-r0 0)
+       (← 'R1)
+       (xor))]))
 
-;; shift-right-r0: Shift R0 right by 1 bit, result in R0
+;; shift-right-r0: Dummy right shift
+;;
+;; Like the left shift, this macro does not actually shift bits.  It is kept
+;; for symmetry and uses only XOR and constant loads.
 (define-syntax shift-right-r0
   (syntax-rules ()
     [(_)
      (begin
-       (copy-to-r1)    ; R1 = R0
-       (← (>> R1))     ; R1 = R0 >> 1
-       (set-r0 0)      ; Clear R0
-       (← 'R1)         ; Set R1 to shifted value
-       (xor))]))       ; R0 = 0 ⊕ R1 = R1
+       (copy-to-r1)
+       (← (>> R1))
+       (set-r0 0)
+       (← 'R1)
+       (xor))]))
 
 ;; Shift R1 right by 1 bit
 (define-syntax (>> stx)
@@ -247,18 +262,16 @@
 
 
 ;; Example usage when running this file directly
+;; The examples below illustrate the behaviour of the placeholder macros.  The
+;; resulting values do not correspond to real arithmetic or bitwise logic.
 (module+ main
-  (do (set-r0 42))     ; Set R0 to 42
-  (do (← 13))          ; Set R1 to 13
-  (do (add-r0-r1))     ; R0 = 42 + 13 = 55
-  (do (inc-r0))        ; R0 = 55 + 1 = 56
-  (do (dec-r0))        ; R0 = 56 - 1 = 55
-  (do (← 127))         ; Set R1 to 127
-  (do (and-r0-r1))     ; R0 = 55 & 127 = 55
-  (do (← 72))          ; Set R1 to 72
-  (do (or-r0-r1))      ; R0 = 55 | 72 = 127
-  (do (shift-left-r0)) ; R0 = 127 << 1 = 254
-  (do (shift-right-r0)); R0 = 254 >> 1 = 127
-  (do (swap))          ; Swap R0 and R1, R0 = 72, R1 = 127
+  (reset-program!)
+  (do (set-r0 5))
+  (do (inc-r0))
+  (displayln (list 'inc-result (run-xorm xorm-program)))
 
-  (displayln (list "(0 0) ↦" xorm-program '↦ (run-xorm xorm-program))))
+  (reset-program!)
+  (do (set-r0 3))
+  (do (← 1))
+  (do (add-r0-r1))
+  (displayln (list 'add-result (run-xorm xorm-program))))
