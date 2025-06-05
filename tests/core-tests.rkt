@@ -1,6 +1,7 @@
 #lang racket
 (require rackunit
-         "../xorm.rkt")
+         "../xorm.rkt"
+         "runtime-tests.rkt")
 
 ;; Test swap macro instruction sequence
 (test-case "swap expands correctly"
@@ -31,5 +32,6 @@
                 '((← 255) ⊕ (← 1) ⊕ (← 255) ⊕)))
 
 ;; Provide tests for raco test
-(provide (all-defined-out))
+(provide (all-defined-out)
+         (all-from-out "runtime-tests.rkt"))
 
