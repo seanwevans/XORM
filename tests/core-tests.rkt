@@ -35,6 +35,22 @@
                 '((← 255) ⊕ (← 1) ⊕ (← 255) ⊕))
   )
 
+;; Test shift-left-r0 macro
+(test-case "shift-left-r0 expands correctly"
+  (reset-program!)
+  (do (shift-left-r0))
+  (check-equal? xorm-program
+                '((← 0) ⊕ (← R0) (← R1) (← 0) ⊕ (← R1) ⊕))
+  )
+
+;; Test shift-right-r0 macro
+(test-case "shift-right-r0 expands correctly"
+  (reset-program!)
+  (do (shift-right-r0))
+  (check-equal? xorm-program
+                '((← 0) ⊕ (← R0) (← R1) (← 0) ⊕ (← R1) ⊕))
+  )
+
 ;; Provide tests for raco test
 (provide (all-defined-out)
          (all-from-out "runtime-tests.rkt"))
