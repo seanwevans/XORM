@@ -55,6 +55,13 @@ The language is built entirely from macros that expand to the primitive
 - `shift-left-r0` / `shift-right-r0` – shift `R0` one bit left or right.
 - `<<` / `>>` – compile‑time helpers that shift numeric constants.
 
+Several of the listed macros are only *placeholders*.  The runtime machine
+can execute only `xor` and load constants, so `and-r0-r1`, `or-r0-r1`,
+`add-r0-r1`, `shift-left-r0` and `shift-right-r0` merely juggle values using
+those primitives.  They do **not** compute real logical or arithmetic
+results.  See [lines 167–205 of `xorm.rkt`](xorm.rkt#L167-L205) for the code
+and comments explaining these limitations.
+
 ## Example usage
 
 ### `xorm.rkt`
