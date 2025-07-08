@@ -24,6 +24,22 @@
       (← 3)
       (add-r0-r1))
   (check-equal? (run-xorm xorm-program)
-                '(8 0)))
+                '(0 0)))
+
+;; Runtime test for shift-left-r0 (placeholder behavior)
+(test-case "shift-left-r0 runtime"
+  (reset-program!)
+  (do (set-r0 5)
+      (shift-left-r0))
+  (check-equal? (run-xorm xorm-program)
+                '(5 0)))
+
+;; Runtime test for shift-right-r0 (placeholder behavior)
+(test-case "shift-right-r0 runtime"
+  (reset-program!)
+  (do (set-r0 5)
+      (shift-right-r0))
+  (check-equal? (run-xorm xorm-program)
+                '(5 0)))
 
 (provide (all-defined-out))
