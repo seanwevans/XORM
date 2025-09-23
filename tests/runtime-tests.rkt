@@ -24,7 +24,26 @@
       (← 3)
       (add-r0-r1))
   (check-equal? (run-xorm xorm-program)
-                '(0 0)))
+                '(8 3)))
+
+;; Addition should wrap around on overflow
+(test-case "add-r0-r1 wrap-around"
+  (reset-program!)
+  (do (set-r0 255)
+      (← 2)
+      (add-r0-r1))
+  (check-equal? (run-xorm xorm-program)
+                '(1 2)))
+
+;; Carry can be surfaced explicitly
+(test-case "add-r0-r1 carry exposure"
+  (reset-program!)
+  (do (set-r0 200)
+      (← 100)
+      (add-r0-r1)
+      (store-carry-in-r1))
+  (check-equal? (run-xorm xorm-program)
+                '(44 1)))
 
 ;; Runtime test for shift-left-r0 (placeholder behavior)
 (test-case "shift-left-r0 runtime"
