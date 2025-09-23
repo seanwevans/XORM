@@ -84,7 +84,7 @@
 
     (set-r0 . (NUMBER ⊕))
 
-    (swap . (⊕ (← 0) (← R0) ⊕ (← R1) ⊕))
+    (swap . (store-r1 (← 0) ⊕ (← R0) ⊕ load-r0-from-temp))
 
     (clear-r0 . ((← 0) (← 0) ⊕))
 
