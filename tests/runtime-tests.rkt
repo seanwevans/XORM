@@ -25,6 +25,14 @@
   (check-equal? (run-xorm xorm-program)
                 '(4 255)))
 
+;; Regression: set-r0 overwrites non-zero R0
+(test-case "set-r0 overwrites existing value"
+  (reset-program!)
+  (do (set-r0 5)
+      (set-r0 42))
+  (check-equal? (run-xorm xorm-program)
+                '(42 42)))
+
 ;; Runtime test for add-r0-r1: 5 + 3 = 8
 (test-case "add-r0-r1 runtime"
   (reset-program!)

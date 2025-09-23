@@ -15,8 +15,8 @@
 (test-case "clear-r0 expands correctly"
   (reset-program!)
   (do (clear-r0))
-  (check-equal? (reverse xorm-program)
-                '((← 0) (← 0) ⊕))
+  (check-equal? xorm-program
+                '((← R0) ⊕ (← 0) ⊕))
   )
 
 ;; Test inc-r0 macro
@@ -39,16 +39,16 @@
 (test-case "shift-left-r0 expands correctly"
   (reset-program!)
   (do (shift-left-r0))
-  (check-equal? (reverse xorm-program)
-                '((← 0) ⊕ (← R0) (← R1) (← 0) ⊕ (← R1) ⊕))
+  (check-equal? xorm-program
+                '((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
   )
 
 ;; Test shift-right-r0 macro
 (test-case "shift-right-r0 expands correctly"
   (reset-program!)
   (do (shift-right-r0))
-  (check-equal? (reverse xorm-program)
-                '((← 0) ⊕ (← R0) (← R1) (← 0) ⊕ (← R1) ⊕))
+  (check-equal? xorm-program
+                '((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
   )
 
 ;; Provide tests for raco test

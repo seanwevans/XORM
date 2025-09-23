@@ -82,11 +82,11 @@
   `(
     (inc-r0 . ((← 1) ⊕))
 
-    (set-r0 . (NUMBER ⊕))
+    (set-r0 . ((← R0) ⊕ NUMBER ⊕))
 
     (swap . (store-r1 (← 0) ⊕ (← R0) ⊕ load-r0-from-temp))
 
-    (clear-r0 . ((← 0) (← 0) ⊕))
+    (clear-r0 . ((← R0) ⊕ (← 0) ⊕))
 
     (clear-r1 . ((← 0)))
 
@@ -108,9 +108,9 @@
 
     (add-r0-r1 . ((set-carry 0) ADD))
 
-    (shift-left-r0 . ((← 0) ⊕ (← R0) (← R1) (← 0) ⊕ (← R1) ⊕))
+    (shift-left-r0 . ((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
 
-    (shift-right-r0 . ((← 0) ⊕ (← R0) (← R1) (← 0) ⊕ (← R1) ⊕))
+    (shift-right-r0 . ((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
   ))
 
 (define (decompile-xorm program)

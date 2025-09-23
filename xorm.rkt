@@ -112,8 +112,10 @@
   (syntax-rules ()
     [(_ c)
       (begin
-        (← c)
-        (xor))]))
+        (← 'R0)   ; Copy current R0 into R1
+        (xor)     ; Clear R0 by xoring it with itself
+        (← c)     ; Load the requested constant
+        (xor))])) ; Apply it to R0
 
 ;; run a list of operations
 (define-syntax do
@@ -137,8 +139,7 @@
   (syntax-rules ()
     [(_)
      (begin
-       (← 0)      ; Set R1 to 0
-       (set-r0 0))]))  ; Set R0 to 0
+       (set-r0 0))]))  ; Set R0 (and consequently R1) to 0
 
 ;; clear-r1: Set R1 to 0
 (define-syntax clear-r1
@@ -252,8 +253,10 @@
      (begin
        (copy-to-r1)
        (← (<< R1))
-       (set-r0 0)
-       (← 'R1)
+       (← 'R0)
+       (xor)
+       (xor)
+       (← 0)
        (xor))]))
 
 ;; shift-right-r0: Dummy right shift
@@ -266,8 +269,10 @@
      (begin
        (copy-to-r1)
        (← (>> R1))
-       (set-r0 0)
-       (← 'R1)
+       (← 'R0)
+       (xor)
+       (xor)
+       (← 0)
        (xor))]))
 
 ;; Shift R1 right by 1 bit
