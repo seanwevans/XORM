@@ -1,13 +1,17 @@
 # XORM (⊕M)
 
-XORM is a tiny DSL with exactly two 8‑bit registers `R1` and `R0` and a
-single runtime instruction `⊕` (`xor`).  Everything else is built using
-macros that expand to that primitive instruction.  Running a program
-produces a list of the final values of `R0` and `R1`.
+XORM is a tiny DSL with two 8‑bit registers (`R1` and `R0`).  Programs are
+written in terms of macros that expand to a small set of primitive
+instructions executed by `run-xorm`.  Originally only XOR was available;
+the machine now also exposes helper primitives for computing carries,
+bitwise logic and addition so that `add-r0-r1` can perform genuine
+8‑bit arithmetic.  Running a program produces a list of the final values
+of `R0` and `R1`.
 
-`XORM` (`⊕M`) is just xor, macros and 2 abstract 8-bit registers: `R1` and `R0`.
-Macros are the only abstraction allowed.
-XOR(⊕) is the only runtime instruction available, i.e. R0 ← R0 ⊕ R1
+`XORM` (`⊕M`) is just xor, macros and two abstract 8-bit registers: `R1`
+and `R0`.  Macros are the only abstraction allowed.  The runtime supports
+`⊕` along with helper instructions for addition (`ADD` plus carry control)
+and basic bitwise logic.
 
 To use the DSL in another Racket file:
 
@@ -51,16 +55,16 @@ The language is built entirely from macros that expand to the primitive
 - `copy-to-r1` – copy the current value of `R0` into `R1`.
 - `not-r0` – bitwise complement of `R0`.
 - `and-r0-r1` / `or-r0-r1` – bitwise logic with the result placed in `R0`.
-- `add-r0-r1` – add `R1` to `R0` (8‑bit arithmetic).
+- `add-r0-r1` – add `R1` to `R0` (8‑bit arithmetic with wrap-around).
+- `set-carry` / `clear-carry` – control the carry flag used by `ADD`.
+- `store-carry-in-r1` – expose the carry flag to software.
 - `shift-left-r0` / `shift-right-r0` – shift `R0` one bit left or right.
 - `<<` / `>>` – compile‑time helpers that shift numeric constants.
 
-Several of the listed macros are only *placeholders*.  The runtime machine
-can execute only `xor` and load constants, so `and-r0-r1`, `or-r0-r1`,
-`add-r0-r1`, `shift-left-r0` and `shift-right-r0` merely juggle values using
-those primitives.  They do **not** compute real logical or arithmetic
-results.  See [lines 167–205 of `xorm.rkt`](xorm.rkt#L167-L205) for the code
-and comments explaining these limitations.
+Some operations remain *placeholders*.  Increment/decrement and the shift
+macros are still implemented purely in terms of XOR and constant loads and
+do **not** behave like real arithmetic shifts.  See the implementation in
+[`xorm.rkt`](xorm.rkt) for details.
 
 ## Example usage
 
