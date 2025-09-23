@@ -18,7 +18,7 @@
 ;; ============================================================================
 
 
-;; the XORM program
+;; the XORM program (stored in reverse emission order)
 (define xorm-program '())
 
 
@@ -39,9 +39,9 @@
   (set! xorm-program '()))
 
 
-;; append an instruction to the program
+;; append an instruction to the program (stored in reverse order)
 (define (emit inst)
-  (set! xorm-program (append xorm-program (list inst))))
+  (set! xorm-program (cons inst xorm-program)))
 
 ;; run a XORM program
 (define (run-xorm prog)
@@ -60,7 +60,7 @@
                    [(eq? val 'R1) (set! R1 R1)]
                    [else (set! R1 val)])]
                 [else (error "???" inst)]))
-            prog)
+            (reverse prog))
   (list R0 R1))
 
 ;; ⊕: The only runtime instruction: R0 ← R0 ⊕ R1
