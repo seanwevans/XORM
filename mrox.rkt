@@ -40,6 +40,20 @@
           (eq? (first real-inst) '←)
           (equal? (second pattern-inst) (second real-inst)))
      #t]
+
+    [(and (list? pattern-inst)
+          (= (length pattern-inst) 2)
+          (eq? (first pattern-inst) 'set-carry)
+          (list? real-inst)
+          (= (length real-inst) 2)
+          (eq? (first real-inst) 'set-carry))
+     (let ([pattern-val (second pattern-inst)]
+           [real-val (second real-inst)])
+       (cond
+         [(eq? pattern-val 'NUMBER)
+          (number? real-val)]
+         [else
+          (equal? pattern-val real-val)]))]
     
     [(and (list? pattern-inst)
           (= (length pattern-inst) 2)
@@ -70,7 +84,7 @@
 
     (set-r0 . ((← R0) ⊕ NUMBER ⊕))
 
-    (swap . (⊕ (← 0) (← R0) ⊕ (← R1) ⊕))
+    (swap . (store-r1 (← 0) ⊕ (← R0) ⊕ load-r0-from-temp))
 
     (clear-r0 . ((← R0) ⊕ (← 0) ⊕))
 
@@ -82,11 +96,17 @@
 
     (copy-to-r1 . ((← 0) ⊕ (← R0)))
 
-    (and-r0-r1 . ((← 0) ⊕ (← R0) (← 255) ⊕ ⊕ (← 255) ⊕))
+    (and-r0-r1 . (AND))
 
-    (add-r0-r1
-     . ((← 0) ⊕ (← R0) (← 255) ⊕ ⊕ (← 255) ⊕
-        (← R0) (← R1) ⊕ (← R0) (← R1) (← R1) ⊕))
+    (or-r0-r1 . (OR))
+
+    (set-carry . ((set-carry NUMBER)))
+
+    (clear-carry . ((set-carry 0)))
+
+    (store-carry-in-r1 . (carry->r1))
+
+    (add-r0-r1 . ((set-carry 0) ADD))
 
     (shift-left-r0 . ((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
 

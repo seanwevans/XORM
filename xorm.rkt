@@ -18,7 +18,7 @@
 ;; ============================================================================
 
 
-;; the XORM program
+;; the XORM program (stored in reverse emission order)
 (define xorm-program '())
 
 
@@ -32,35 +32,63 @@
   xor ← set-r0 do swap clear-r0 clear-r1 inc-r0 dec-r0
   copy-to-r1 not-r0 and-r0-r1 or-r0-r1 add-r0-r1
   shift-left-r0 shift-right-r0 << >>
+  set-carry clear-carry store-carry-in-r1
   reset-program!)
 
 ;; reset the recorded program
 (define (reset-program!)
   (set! xorm-program '()))
 
-
 ;; append an instruction to the program
+(define (validate-inst inst)
+  (when (and (list? inst)
+             (equal? (first inst) '←))
+    (define val (second inst))
+    (cond
+      [(or (eq? val 'R0) (eq? val 'R1))
+       (void)]
+      [(number? val)
+       (unless (exact-integer? val)
+         (error 'emit
+                (format "← expected an integer constant, got ~a" val)))
+       (unless (<= 0 val 255)
+         (error 'emit
+                (format "← constant ~a out of range 0..255" val)))]
+      [else
+       (error 'emit
+              (format "← expected a register reference or integer constant, got ~a"
+                      val))])))
+
 (define (emit inst)
+  (validate-inst inst)
   (set! xorm-program (append xorm-program (list inst))))
 
 ;; run a XORM program
 (define (run-xorm prog)
 
+  (define (mask-byte v)
+    (bitwise-and v #xFF))
+
   (define R0 0)
   (define R1 0)
+  (define temp 0)
   (for-each (lambda (inst)
               (cond
                 [(eq? inst '⊕)
-                 (set! R0 (bitwise-xor R0 R1))]
+                 (set! R0 (mask-byte (bitwise-xor R0 R1)))]
+                [(eq? inst 'store-r1)
+                 (set! temp (mask-byte R1))]
+                [(eq? inst 'load-r0-from-temp)
+                 (set! R0 (mask-byte temp))]
                 [(and (list? inst)
                       (equal? (first inst) '←))
                  (define val (second inst))
                  (cond
-                   [(eq? val 'R0) (set! R1 R0)]
-                   [(eq? val 'R1) (set! R1 R1)]
-                   [else (set! R1 val)])]
+                   [(eq? val 'R0) (set! R1 (mask-byte R0))]
+                   [(eq? val 'R1) (set! R1 (mask-byte R1))]
+                   [else (set! R1 (mask-byte val))])]
                 [else (error "???" inst)]))
-            prog)
+            (reverse prog))
   (list R0 R1))
 
 ;; ⊕: The only runtime instruction: R0 ← R0 ⊕ R1
@@ -101,12 +129,10 @@
   (syntax-rules ()
     [(_)
      (begin
-       (xor)        ; R0 = R0 ⊕ R1
-       (← 0)        ; R1 = 0
-       (← 'R0)      ; Set R1 to current R0
-       (xor)        ; R0 = R0 ⊕ R0 = 0
-       (← 'R1)      ; Restore original R1 to R1
-       (xor))]))    ; R0 = 0 ⊕ R1 = original R1
+       (emit 'store-r1)
+       (copy-to-r1)
+       (xor)
+       (emit 'load-r0-from-temp))]))
 
 ;; clear-r0: Set R0 to 0
 (define-syntax clear-r0
@@ -165,55 +191,48 @@
        (← 255)    ; Set R1 to 255 (all 1s)
        (xor))]))  ; R0 = R0 ⊕ 255 (flips all bits)
 
-;; and-r0-r1: Placeholder for a bitwise AND
-;;
-;; The XORM machine cannot compute a real AND because XOR is linear over the
-;; register bits.  The following sequence merely manipulates the registers with
-;; XOR and constant loads without producing a correct AND result.
+;; and-r0-r1: Bitwise AND with result in R0
 (define-syntax and-r0-r1
   (syntax-rules ()
     [(_)
      (begin
-       (copy-to-r1)
-       (not-r0)
-       (xor)
-       (not-r0))]))
+       (emit 'AND))]))
 
-;; or-r0-r1: Placeholder for a bitwise OR
-;;
-;; Like `and-r0-r1`, this macro cannot perform a true OR with only XOR
-;; available.  It keeps to the XOR/constant restriction but the computed value
-;; does not match a real OR operation.
+;; or-r0-r1: Bitwise OR with result in R0
 (define-syntax or-r0-r1
   (syntax-rules ()
     [(_)
      (begin
-       (copy-to-r1)
-       (← 'R1)
-       (xor)
-       (← 'R0)
-       (← 'R0)
-       (and-r0-r1)
-       (← 'R0)
-       (← 'R0)
-       (xor))]))
+       (emit 'OR))]))
 
-;; add-r0-r1: Attempt at an adder
-;;
-;; This follows the same XOR-only approach and does not implement a real
-;; addition.  Carry information is lost, so results deviate from a proper sum.
+;; set-carry: Set the carry flag (0 or 1)
+(define-syntax set-carry
+  (syntax-rules ()
+    [(_ c)
+     (begin
+       (emit (list 'set-carry c)))]))
+
+;; clear-carry: Convenience wrapper for `(set-carry 0)`
+(define-syntax clear-carry
+  (syntax-rules ()
+    [(_)
+     (begin
+       (set-carry 0))]))
+
+;; store-carry-in-r1: Move the current carry into R1
+(define-syntax store-carry-in-r1
+  (syntax-rules ()
+    [(_)
+     (begin
+       (emit 'carry->r1))]))
+
+;; add-r0-r1: 8-bit addition with wrap-around
 (define-syntax add-r0-r1
   (syntax-rules ()
     [(_)
      (begin
-       (and-r0-r1)
-       (← 'R0)
-       (← 'R1)
-       (xor)
-       (← R0)
-       (← R1)
-       (← (<< R1))
-       (xor))]))
+       (clear-carry)
+       (emit 'ADD))]))
 
 ;; Shift R1 left by 1 bit
 (define-syntax (<< stx)

@@ -8,7 +8,7 @@
   (do (set-r0 3))
   (do (swap))
   (do (inc-r0))
-  (define prog xorm-program)
+  (define prog (reverse xorm-program))
   (check-equal? (decompile-xorm prog)
                 '(set-r0 swap inc-r0)))
 
@@ -17,7 +17,7 @@
   (do (set-r0 5))
   (do (← 3))
   (do (add-r0-r1))
-  (define prog xorm-program)
+  (define prog (reverse xorm-program))
   (check-equal? (decompile-xorm prog)
                 '(set-r0 (← 3) add-r0-r1)))
 
