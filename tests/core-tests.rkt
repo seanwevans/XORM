@@ -16,7 +16,7 @@
   (reset-program!)
   (do (clear-r0))
   (check-equal? xorm-program
-                '((← 0) (← 0) ⊕))
+                '((← R0) ⊕ (← 0) ⊕))
   )
 
 ;; Test inc-r0 macro
@@ -40,7 +40,7 @@
   (reset-program!)
   (do (shift-left-r0))
   (check-equal? xorm-program
-                '((← 0) ⊕ (← R0) (← R1) (← 0) ⊕ (← R1) ⊕))
+                '((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
   )
 
 ;; Test shift-right-r0 macro
@@ -48,7 +48,7 @@
   (reset-program!)
   (do (shift-right-r0))
   (check-equal? xorm-program
-                '((← 0) ⊕ (← R0) (← R1) (← 0) ⊕ (← R1) ⊕))
+                '((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
   )
 
 ;; Provide tests for raco test
