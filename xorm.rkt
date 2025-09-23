@@ -46,19 +46,27 @@
 ;; run a XORM program
 (define (run-xorm prog)
 
+  (define (mask-byte v)
+    (bitwise-and v #xFF))
+
   (define R0 0)
   (define R1 0)
+  (define temp 0)
   (for-each (lambda (inst)
               (cond
                 [(eq? inst '⊕)
-                 (set! R0 (bitwise-xor R0 R1))]
+                 (set! R0 (mask-byte (bitwise-xor R0 R1)))]
+                [(eq? inst 'store-r1)
+                 (set! temp (mask-byte R1))]
+                [(eq? inst 'load-r0-from-temp)
+                 (set! R0 (mask-byte temp))]
                 [(and (list? inst)
                       (equal? (first inst) '←))
                  (define val (second inst))
                  (cond
-                   [(eq? val 'R0) (set! R1 R0)]
-                   [(eq? val 'R1) (set! R1 R1)]
-                   [else (set! R1 val)])]
+                   [(eq? val 'R0) (set! R1 (mask-byte R0))]
+                   [(eq? val 'R1) (set! R1 (mask-byte R1))]
+                   [else (set! R1 (mask-byte val))])]
                 [else (error "???" inst)]))
             prog)
   (list R0 R1))
@@ -99,12 +107,10 @@
   (syntax-rules ()
     [(_)
      (begin
-       (xor)        ; R0 = R0 ⊕ R1
-       (← 0)        ; R1 = 0
-       (← 'R0)      ; Set R1 to current R0
-       (xor)        ; R0 = R0 ⊕ R0 = 0
-       (← 'R1)      ; Restore original R1 to R1
-       (xor))]))    ; R0 = 0 ⊕ R1 = original R1
+       (emit 'store-r1)
+       (copy-to-r1)
+       (xor)
+       (emit 'load-r0-from-temp))]))
 
 ;; clear-r0: Set R0 to 0
 (define-syntax clear-r0

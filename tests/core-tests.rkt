@@ -8,7 +8,7 @@
   (reset-program!)
   (do (swap))
   (check-equal? xorm-program
-                '(⊕ (← 0) (← R0) ⊕ (← R1) ⊕))
+                '(store-r1 (← 0) ⊕ (← R0) ⊕ load-r0-from-temp))
   )
 
 ;; Test clear-r0 macro

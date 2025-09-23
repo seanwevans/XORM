@@ -9,6 +9,14 @@
   (check-equal? (run-xorm xorm-program)
                 '(1 1)))
 
+(test-case "swap runtime"
+  (reset-program!)
+  (do (set-r0 16)
+      (← 32)
+      (swap))
+  (check-equal? (run-xorm xorm-program)
+                '(32 16)))
+
 ;; Runtime test for dec-r0 starting from 5
 (test-case "dec-r0 runtime"
   (reset-program!)
