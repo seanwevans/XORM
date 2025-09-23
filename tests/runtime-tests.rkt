@@ -42,4 +42,30 @@
   (check-equal? (run-xorm xorm-program)
                 '(5 0)))
 
+(test-case "runtime masks wide constant loads"
+  (check-equal? (run-xorm (list (list '← 300) '⊕))
+                '(44 44)))
+
+(test-case "runtime masks negative constant loads"
+  (check-equal? (run-xorm (list (list '← -1) '⊕))
+                '(255 255)))
+
+(test-case "macro rejects >255 constant"
+  (reset-program!)
+  (check-exn
+   (lambda (exn)
+     (and (exn:fail? exn)
+          (regexp-match? #rx"out of range" (exn-message exn))))
+   (lambda ()
+     (do (← 300)))))
+
+(test-case "macro rejects negative constant"
+  (reset-program!)
+  (check-exn
+   (lambda (exn)
+     (and (exn:fail? exn)
+          (regexp-match? #rx"out of range" (exn-message exn))))
+   (lambda ()
+     (do (← -1)))))
+
 (provide (all-defined-out))

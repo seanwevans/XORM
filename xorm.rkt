@@ -40,7 +40,27 @@
 
 
 ;; append an instruction to the program
+(define (validate-inst inst)
+  (when (and (list? inst)
+             (equal? (first inst) '←))
+    (define val (second inst))
+    (cond
+      [(or (eq? val 'R0) (eq? val 'R1))
+       (void)]
+      [(number? val)
+       (unless (exact-integer? val)
+         (error 'emit
+                (format "← expected an integer constant, got ~a" val)))
+       (unless (<= 0 val 255)
+         (error 'emit
+                (format "← constant ~a out of range 0..255" val)))]
+      [else
+       (error 'emit
+              (format "← expected a register reference or integer constant, got ~a"
+                      val))])))
+
 (define (emit inst)
+  (validate-inst inst)
   (set! xorm-program (append xorm-program (list inst))))
 
 ;; run a XORM program
@@ -51,14 +71,17 @@
   (for-each (lambda (inst)
               (cond
                 [(eq? inst '⊕)
-                 (set! R0 (bitwise-xor R0 R1))]
+                 (set! R0 (bitwise-and (bitwise-xor R0 R1) 255))]
                 [(and (list? inst)
                       (equal? (first inst) '←))
                  (define val (second inst))
                  (cond
-                   [(eq? val 'R0) (set! R1 R0)]
-                   [(eq? val 'R1) (set! R1 R1)]
-                   [else (set! R1 val)])]
+                   [(eq? val 'R0)
+                    (set! R1 (bitwise-and R0 255))]
+                   [(eq? val 'R1)
+                    (set! R1 (bitwise-and R1 255))]
+                   [else
+                    (set! R1 (bitwise-and val 255))])]
                 [else (error "???" inst)]))
             prog)
   (list R0 R1))
