@@ -39,10 +39,29 @@
 (define (reset-program!)
   (set! xorm-program '()))
 
+;; append an instruction to the program
+(define (validate-inst inst)
+  (when (and (list? inst)
+             (equal? (first inst) '←))
+    (define val (second inst))
+    (cond
+      [(or (eq? val 'R0) (eq? val 'R1))
+       (void)]
+      [(number? val)
+       (unless (exact-integer? val)
+         (error 'emit
+                (format "← expected an integer constant, got ~a" val)))
+       (unless (<= 0 val 255)
+         (error 'emit
+                (format "← constant ~a out of range 0..255" val)))]
+      [else
+       (error 'emit
+              (format "← expected a register reference or integer constant, got ~a"
+                      val))])))
 
-;; append an instruction to the program (stored in reverse order)
 (define (emit inst)
-  (set! xorm-program (cons inst xorm-program)))
+  (validate-inst inst)
+  (set! xorm-program (append xorm-program (list inst))))
 
 ;; run a XORM program
 (define (run-xorm prog)
@@ -53,31 +72,18 @@
   (for-each (lambda (inst)
               (cond
                 [(eq? inst '⊕)
-                 (set! R0 (bitwise-xor R0 R1))]
-                [(eq? inst 'AND)
-                 (set! R0 (bitwise-and R0 R1))]
-                [(eq? inst 'OR)
-                 (set! R0 (bitwise-ior R0 R1))]
-                [(eq? inst 'ADD)
-                 (define total (+ R0 R1 carry))
-                 (set! R0 (bitwise-and total 255))
-                 (set! carry (if (>= total 256) 1 0))]
-                [(eq? inst 'carry->r1)
-                 (set! R1 carry)]
+
+                 (set! R0 (bitwise-and (bitwise-xor R0 R1) 255))]
                 [(and (list? inst)
                       (equal? (first inst) '←))
                  (define val (second inst))
                  (cond
-                   [(eq? val 'R0) (set! R1 R0)]
-                   [(eq? val 'R1) (set! R1 R1)]
-                   [else (set! R1 val)])]
-                [(and (list? inst)
-                      (equal? (first inst) 'set-carry))
-                 (define val (second inst))
-                 (unless (and (integer? val)
-                              (or (= val 0) (= val 1)))
-                   (error "carry must be 0 or 1" inst))
-                 (set! carry val)]
+                   [(eq? val 'R0)
+                    (set! R1 (bitwise-and R0 255))]
+                   [(eq? val 'R1)
+                    (set! R1 (bitwise-and R1 255))]
+                   [else
+                    (set! R1 (bitwise-and val 255))])]
                 [else (error "???" inst)]))
             (reverse prog))
   (list R0 R1))
