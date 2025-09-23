@@ -15,7 +15,7 @@
 (test-case "clear-r0 expands correctly"
   (reset-program!)
   (do (clear-r0))
-  (check-equal? xorm-program
+  (check-equal? (reverse xorm-program)
                 '((← 0) (← 0) ⊕))
   )
 
@@ -23,7 +23,7 @@
 (test-case "inc-r0 expands correctly"
   (reset-program!)
   (do (inc-r0))
-  (check-equal? xorm-program
+  (check-equal? (reverse xorm-program)
                 '((← 1) ⊕))
   )
 
@@ -31,7 +31,7 @@
 (test-case "dec-r0 expands correctly"
   (reset-program!)
   (do (dec-r0))
-  (check-equal? xorm-program
+  (check-equal? (reverse xorm-program)
                 '((← 255) ⊕ (← 1) ⊕ (← 255) ⊕))
   )
 
@@ -39,7 +39,7 @@
 (test-case "shift-left-r0 expands correctly"
   (reset-program!)
   (do (shift-left-r0))
-  (check-equal? xorm-program
+  (check-equal? (reverse xorm-program)
                 '((← 0) ⊕ (← R0) (← R1) (← 0) ⊕ (← R1) ⊕))
   )
 
@@ -47,7 +47,7 @@
 (test-case "shift-right-r0 expands correctly"
   (reset-program!)
   (do (shift-right-r0))
-  (check-equal? xorm-program
+  (check-equal? (reverse xorm-program)
                 '((← 0) ⊕ (← R0) (← R1) (← 0) ⊕ (← R1) ⊕))
   )
 
