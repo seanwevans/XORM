@@ -1,4 +1,5 @@
 # XORM (⊕M)
+<img width="256" alt="\oplus" src="https://github.com/user-attachments/assets/acf232dd-e236-4637-8126-728d10831198" />
 
 XORM is a tiny DSL with two 8‑bit registers (`R1` and `R0`).  Programs are
 written in terms of macros that expand to a small set of primitive
