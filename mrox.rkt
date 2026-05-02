@@ -108,9 +108,9 @@
 
     (add-r0-r1 . ((set-carry 0) ADD))
 
-    (shift-left-r0 . ((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
+    (shift-left-r0-placeholder . ((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
 
-    (shift-right-r0 . ((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
+    (shift-right-r0-placeholder . ((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
   ))
 
 (define (decompile-xorm program)
