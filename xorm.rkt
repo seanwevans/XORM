@@ -18,7 +18,7 @@
 ;; ============================================================================
 
 
-;; the XORM program (stored in reverse emission order)
+;; the XORM program in emission order (first emitted, first executed)
 (define xorm-program '())
 
 
@@ -39,7 +39,7 @@
 (define (reset-program!)
   (set! xorm-program '()))
 
-;; append an instruction to the program
+;; append an instruction to the program (preserves emission order)
 (define (validate-inst inst)
   (when (and (list? inst)
              (equal? (first inst) '←))
@@ -88,7 +88,7 @@
                    [(eq? val 'R1) (set! R1 (mask-byte R1))]
                    [else (set! R1 (mask-byte val))])]
                 [else (error "???" inst)]))
-            (reverse prog))
+            prog))
   (list R0 R1))
 
 ;; ⊕: The only runtime instruction: R0 ← R0 ⊕ R1
