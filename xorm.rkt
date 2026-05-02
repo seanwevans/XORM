@@ -243,32 +243,36 @@
          (datum->syntax stx (bitwise-and (arithmetic-shift v 1) 255))
          #'val)]))
 
-;; shift-left-r0: Dummy left shift
+;; shift-left-r0: Placeholder left shift
 ;;
 ;; True shifting cannot be achieved with XOR alone.  This macro merely
-;; scrambles the registers using XOR and constants.
+;; emits a fixed primitive sequence that resembles a shift scaffold.
 (define-syntax shift-left-r0
   (syntax-rules ()
     [(_)
      (begin
-       (copy-to-r1)
-       (← (<< R1))
+       (← 0)
+       (xor)
+       (← 'R0)
+       (← 'R1)
        (← 'R0)
        (xor)
        (xor)
        (← 0)
        (xor))]))
 
-;; shift-right-r0: Dummy right shift
+;; shift-right-r0: Placeholder right shift
 ;;
 ;; Like the left shift, this macro does not actually shift bits.  It is kept
-;; for symmetry and uses only XOR and constant loads.
+;; for symmetry and emits an explicit primitive fallback sequence.
 (define-syntax shift-right-r0
   (syntax-rules ()
     [(_)
      (begin
-       (copy-to-r1)
-       (← (>> R1))
+       (← 0)
+       (xor)
+       (← 'R0)
+       (← 'R1)
        (← 'R0)
        (xor)
        (xor)
