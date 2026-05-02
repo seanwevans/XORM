@@ -61,7 +61,7 @@
 
 (define (emit inst)
   (validate-inst inst)
-  (set! xorm-program (append xorm-program (list inst))))
+  (set! xorm-program (cons inst xorm-program)))
 
 ;; run a XORM program
 (define (run-xorm prog)
