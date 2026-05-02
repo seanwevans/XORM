@@ -48,10 +48,10 @@ The language is built entirely from macros that expand to the primitive
 
 - `xor` – perform `R0 ← R0 ⊕ R1`.
 - `← c` – set `R1` to the constant or register `c`.
-- `set-r0 c` – load the constant `c` into `R0`.
+- `set-r0 c` – load the constant `c` into `R0` **and overwrite `R1` with `c`**.
 - `do` – evaluate a sequence of operations.
 - `swap` – exchange the values of `R0` and `R1`.
-- `clear-r0` / `clear-r1` – set the respective register to zero.
+- `clear-r0` / `clear-r1` – set the respective register to zero (`clear-r0` also leaves `R1 = 0` because it expands through `set-r0`).
 - `inc-r0` / `dec-r0` – increment or decrement `R0`.
 - `copy-to-r1` – copy the current value of `R0` into `R1`.
 - `not-r0` – bitwise complement of `R0`.

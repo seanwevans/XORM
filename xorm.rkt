@@ -18,7 +18,7 @@
 ;; ============================================================================
 
 
-;; the XORM program (stored in reverse emission order)
+;; the XORM program in emission order (first emitted, first executed)
 (define xorm-program '())
 
 
@@ -39,7 +39,7 @@
 (define (reset-program!)
   (set! xorm-program '()))
 
-;; append an instruction to the program
+;; append an instruction to the program (preserves emission order)
 (define (validate-inst inst)
   (when (and (list? inst)
              (equal? (first inst) '←))
@@ -61,7 +61,7 @@
 
 (define (emit inst)
   (validate-inst inst)
-  (set! xorm-program (append xorm-program (list inst))))
+  (set! xorm-program (cons inst xorm-program)))
 
 ;; run a XORM program
 (define (run-xorm prog)
@@ -124,7 +124,7 @@
         (emit
           (list '← c)))]))
 
-;; set-r0: sets R0 to a constant
+;; set-r0: sets R0 to a constant (clobbers R1)
 (define-syntax set-r0
   (syntax-rules ()
     [(_ c)
@@ -132,7 +132,7 @@
         (← 'R0)   ; Copy current R0 into R1
         (xor)     ; Clear R0 by xoring it with itself
         (← c)     ; Load the requested constant
-        (xor))])) ; Apply it to R0
+        (xor))])) ; Apply it to R0; R1 remains c
 
 ;; run a list of operations
 (define-syntax do
@@ -151,7 +151,7 @@
        (xor)
        (emit 'load-r0-from-temp))]))
 
-;; clear-r0: Set R0 to 0
+;; clear-r0: Set R0 to 0 (also overwrites R1 with 0 via set-r0)
 (define-syntax clear-r0
   (syntax-rules ()
     [(_)
@@ -260,32 +260,36 @@
          (datum->syntax stx (bitwise-and (arithmetic-shift v 1) 255))
          #'val)]))
 
-;; shift-left-r0: Dummy left shift
+;; shift-left-r0: Placeholder left shift
 ;;
 ;; True shifting cannot be achieved with XOR alone.  This macro merely
-;; scrambles the registers using XOR and constants.
+;; emits a fixed primitive sequence that resembles a shift scaffold.
 (define-syntax shift-left-r0
   (syntax-rules ()
     [(_)
      (begin
-       (copy-to-r1)
-       (← (<< R1))
+       (← 0)
+       (xor)
+       (← 'R0)
+       (← 'R1)
        (← 'R0)
        (xor)
        (xor)
        (← 0)
        (xor))]))
 
-;; shift-right-r0: Dummy right shift
+;; shift-right-r0: Placeholder right shift
 ;;
 ;; Like the left shift, this macro does not actually shift bits.  It is kept
-;; for symmetry and uses only XOR and constant loads.
+;; for symmetry and emits an explicit primitive fallback sequence.
 (define-syntax shift-right-r0
   (syntax-rules ()
     [(_)
      (begin
-       (copy-to-r1)
-       (← (>> R1))
+       (← 0)
+       (xor)
+       (← 'R0)
+       (← 'R1)
        (← 'R0)
        (xor)
        (xor)
