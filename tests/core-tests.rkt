@@ -7,7 +7,7 @@
 (test-case "swap expands correctly"
   (reset-program!)
   (do (swap))
-  (check-equal? xorm-program
+  (check-equal? (reverse xorm-program)
                 '(store-r1 (← 0) ⊕ (← R0) ⊕ load-r0-from-temp))
   )
 
@@ -15,7 +15,7 @@
 (test-case "clear-r0 expands correctly"
   (reset-program!)
   (do (clear-r0))
-  (check-equal? xorm-program
+  (check-equal? (reverse xorm-program)
                 '((← R0) ⊕ (← 0) ⊕))
   )
 
@@ -39,7 +39,7 @@
 (test-case "shift-left-r0 expands correctly"
   (reset-program!)
   (do (shift-left-r0))
-  (check-equal? xorm-program
+  (check-equal? (reverse xorm-program)
                 '((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
   )
 
@@ -47,7 +47,7 @@
 (test-case "shift-right-r0 expands correctly"
   (reset-program!)
   (do (shift-right-r0))
-  (check-equal? xorm-program
+  (check-equal? (reverse xorm-program)
                 '((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
   )
 
