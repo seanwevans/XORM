@@ -107,7 +107,7 @@
         (emit
           (list '← c)))]))
 
-;; set-r0: sets R0 to a constant
+;; set-r0: sets R0 to a constant (clobbers R1)
 (define-syntax set-r0
   (syntax-rules ()
     [(_ c)
@@ -115,7 +115,7 @@
         (← 'R0)   ; Copy current R0 into R1
         (xor)     ; Clear R0 by xoring it with itself
         (← c)     ; Load the requested constant
-        (xor))])) ; Apply it to R0
+        (xor))])) ; Apply it to R0; R1 remains c
 
 ;; run a list of operations
 (define-syntax do
@@ -134,7 +134,7 @@
        (xor)
        (emit 'load-r0-from-temp))]))
 
-;; clear-r0: Set R0 to 0
+;; clear-r0: Set R0 to 0 (also overwrites R1 with 0 via set-r0)
 (define-syntax clear-r0
   (syntax-rules ()
     [(_)
