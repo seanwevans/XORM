@@ -72,14 +72,29 @@
   (define R0 0)
   (define R1 0)
   (define temp 0)
+  (define carry 0)
   (for-each (lambda (inst)
               (cond
                 [(eq? inst '⊕)
                  (set! R0 (mask-byte (bitwise-xor R0 R1)))]
+                [(eq? inst 'AND)
+                 (set! R0 (mask-byte (bitwise-and R0 R1)))]
+                [(eq? inst 'OR)
+                 (set! R0 (mask-byte (bitwise-ior R0 R1)))]
+                [(eq? inst 'ADD)
+                 (define sum (+ R0 R1 carry))
+                 (set! R0 (mask-byte sum))
+                 (set! carry (if (> sum 255) 1 0))]
+                [(eq? inst 'carry->r1)
+                 (set! R1 carry)]
                 [(eq? inst 'store-r1)
                  (set! temp (mask-byte R1))]
                 [(eq? inst 'load-r0-from-temp)
                  (set! R0 (mask-byte temp))]
+                [(and (list? inst)
+                      (equal? (first inst) 'set-carry))
+                 (define c (second inst))
+                 (set! carry (if (equal? c 0) 0 1))]
                 [(and (list? inst)
                       (equal? (first inst) '←))
                  (define val (second inst))
@@ -87,8 +102,10 @@
                    [(eq? val 'R0) (set! R1 (mask-byte R0))]
                    [(eq? val 'R1) (set! R1 (mask-byte R1))]
                    [else (set! R1 (mask-byte val))])]
-                [else (error "???" inst)]))
-            prog))
+                [else
+                 (error 'run-xorm
+                        (format "Unknown instruction in run-xorm: ~v" inst))]))
+            (reverse prog))
   (list R0 R1))
 
 ;; ⊕: The only runtime instruction: R0 ← R0 ⊕ R1
