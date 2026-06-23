@@ -52,7 +52,7 @@ The language is built entirely from macros that expand to the primitive
 - `do` – evaluate a sequence of operations.
 - `swap` – exchange the values of `R0` and `R1`.
 - `clear-r0` / `clear-r1` – set the respective register to zero (`clear-r0` also leaves `R1 = 0` because it expands through `set-r0`).
-- `inc-r0` / `dec-r0` – increment or decrement `R0`.
+- `inc-r0` / `dec-r0` – placeholder XOR-based operations that do **not** implement correct general arithmetic increment/decrement of `R0`.
 - `copy-to-r1` – copy the current value of `R0` into `R1`.
 - `not-r0` – bitwise complement of `R0`.
 - `and-r0-r1` / `or-r0-r1` – bitwise logic with the result placed in `R0`.
@@ -62,10 +62,12 @@ The language is built entirely from macros that expand to the primitive
 - `shift-left-r0` / `shift-right-r0` – shift `R0` one bit left or right.
 - `<<` / `>>` – compile‑time helpers that shift numeric constants.
 
-Some operations remain *placeholders*.  Increment/decrement and the shift
-macros are still implemented purely in terms of XOR and constant loads and
-do **not** behave like real arithmetic shifts.  See the implementation in
-[`xorm.rkt`](xorm.rkt) for details.
+Some operations remain *placeholders*.  `inc-r0` / `dec-r0` and the shift
+macros are still implemented purely in terms of XOR and constant loads.  The
+increment/decrement forms do **not** behave like correct general arithmetic
+increment/decrement operations, and the shift forms do **not** behave like real
+arithmetic shifts.  See the implementation in [`xorm.rkt`](xorm.rkt) for
+details.
 
 ## Example usage
 
