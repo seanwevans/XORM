@@ -155,17 +155,17 @@
 
 (define example-program
   '((← 42)      ; Set R1 to 42
-    (⊕)         ; XOR into R0
+    ⊕           ; XOR into R0
     (← 13)      ; Set R1 to 13  
-    (⊕)         ; XOR into R0
+    ⊕           ; XOR into R0
     (← 1)       ; Set R1 to 1
-    (⊕)         ; XOR into R0 (inc-r0)
+    ⊕           ; XOR into R0 (inc-r0)
     (← 255)     ; Set R1 to 255
-    (⊕)         ; XOR into R0
+    ⊕           ; XOR into R0
     (← 1)       ; Set R1 to 1
-    (⊕)         ; XOR into R0
+    ⊕           ; XOR into R0
     (← 255)     ; Set R1 to 255
-    (⊕)))       ; XOR into R0 (dec-r0)
+    ⊕))         ; XOR into R0 (dec-r0)
 
 (module+ main
   (displayln "Original XORM program:")
