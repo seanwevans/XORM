@@ -3,8 +3,6 @@
 (require rnrs/arithmetic/bitwise-6)
 (require (for-syntax syntax/parse))
 
-(provide (all-defined-out))
-
 
 ;; ============================================================================
 ;; XORM DSL
