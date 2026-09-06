@@ -77,12 +77,15 @@
   (check-equal? (run-xorm xorm-program)
                 '(5 0)))
 
+;; `run-xorm` consumes a program in the order `emit` stores it, which is the
+;; reverse of emission order.  These two cases are written in emission order
+;; for readability and reversed on the way in, exactly like `xorm-program`.
 (test-case "runtime masks wide constant loads"
-  (check-equal? (run-xorm (list (list '← 300) '⊕))
+  (check-equal? (run-xorm (reverse (list (list '← 300) '⊕)))
                 '(44 44)))
 
 (test-case "runtime masks negative constant loads"
-  (check-equal? (run-xorm (list (list '← -1) '⊕))
+  (check-equal? (run-xorm (reverse (list (list '← -1) '⊕)))
                 '(255 255)))
 
 (test-case "macro rejects >255 constant"

@@ -1,10 +1,11 @@
 name: CI
 
+# Run on every branch and every pull request, whatever its base.  The previous
+# `branches: [main, master]` filter meant work on a stacked branch (or a PR
+# targeting anything other than main) got no CI at all.
 on:
   push:
-    branches: [main, master]
   pull_request:
-    branches: [main, master]
 
 jobs:
   test:
