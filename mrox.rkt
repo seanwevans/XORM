@@ -80,7 +80,7 @@
 
 (define macro-patterns
   `(
-    (inc-r0 . ((← 1) ⊕))
+    (inc-r0 . ((← 1) (set-carry 0) ADD))
 
     (set-r0 . ((← R0) ⊕ NUMBER ⊕))
 
@@ -92,7 +92,7 @@
 
     (not-r0 . ((← 255) ⊕))
 
-    (dec-r0 . ((← 255) ⊕ (← 1) ⊕ (← 255) ⊕))
+    (dec-r0 . ((← 255) (set-carry 0) ADD))
 
     (copy-to-r1 . ((← 0) ⊕ (← R0)))
 
@@ -108,9 +108,9 @@
 
     (add-r0-r1 . ((set-carry 0) ADD))
 
-    (shift-left-r0-placeholder . ((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
+    (shift-left-r0 . ((← R0) (set-carry 0) ADD))
 
-    (shift-right-r0-placeholder . ((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
+    (shift-right-r0 . (SHR))
   ))
 
 (define (decompile-xorm program)
@@ -154,18 +154,11 @@
       [else (displayln item)])))
 
 (define example-program
-  '((← 42)      ; Set R1 to 42
-    ⊕           ; XOR into R0
-    (← 13)      ; Set R1 to 13  
-    ⊕           ; XOR into R0
-    (← 1)       ; Set R1 to 1
-    ⊕           ; XOR into R0 (inc-r0)
-    (← 255)     ; Set R1 to 255
-    ⊕           ; XOR into R0
-    (← 1)       ; Set R1 to 1
-    ⊕           ; XOR into R0
-    (← 255)     ; Set R1 to 255
-    ⊕))         ; XOR into R0 (dec-r0)
+  '((← R0) ⊕ (← 42) ⊕          ; set-r0 42
+    (← 1) (set-carry 0) ADD     ; inc-r0        (42 -> 43)
+    (← R0) (set-carry 0) ADD    ; shift-left-r0 (43 -> 86)
+    SHR                         ; shift-right-r0 (86 -> 43)
+    (← 255) (set-carry 0) ADD)) ; dec-r0        (43 -> 42)
 
 (module+ main
   (displayln "Original XORM program:")

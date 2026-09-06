@@ -61,21 +61,55 @@
   (check-equal? (run-xorm xorm-program)
                 '(44 1)))
 
-;; Runtime test for shift-left-r0 (placeholder behavior)
+;; inc-r0 and dec-r0 are real 8-bit arithmetic, not bit-0 toggles.  The old
+;; XOR-based versions expanded to `xor 1` and so ran backwards on odd inputs:
+;; (set-r0 5) (inc-r0) produced 4, and (set-r0 4) (dec-r0) produced 5.
+(test-case "inc-r0 increments rather than toggling bit 0"
+  (reset-program!)
+  (do (set-r0 5) (inc-r0))
+  (check-equal? (first (run-xorm xorm-program)) 6))
+
+(test-case "dec-r0 decrements rather than toggling bit 0"
+  (reset-program!)
+  (do (set-r0 4) (dec-r0))
+  (check-equal? (first (run-xorm xorm-program)) 3))
+
+(test-case "inc-r0 wraps 255 -> 0 and sets carry"
+  (reset-program!)
+  (do (set-r0 255) (inc-r0) (store-carry-in-r1))
+  (check-equal? (run-xorm xorm-program) '(0 1)))
+
+(test-case "dec-r0 wraps 0 -> 255 and clears carry (borrow)"
+  (reset-program!)
+  (do (set-r0 0) (dec-r0) (store-carry-in-r1))
+  (check-equal? (run-xorm xorm-program) '(255 0)))
+
+;; Runtime test for shift-left-r0: a real doubling, R1 left holding the
+;; pre-shift value of R0.
 (test-case "shift-left-r0 runtime"
   (reset-program!)
   (do (set-r0 5)
       (shift-left-r0))
   (check-equal? (run-xorm xorm-program)
-                '(5 0)))
+                '(10 5)))
 
-;; Runtime test for shift-right-r0 (placeholder behavior)
+(test-case "shift-left-r0 overflow goes to the carry"
+  (reset-program!)
+  (do (set-r0 200) (shift-left-r0) (store-carry-in-r1))
+  (check-equal? (run-xorm xorm-program) '(144 1)))
+
+;; Runtime test for shift-right-r0: a real halving that leaves R1 alone.
 (test-case "shift-right-r0 runtime"
   (reset-program!)
   (do (set-r0 5)
       (shift-right-r0))
   (check-equal? (run-xorm xorm-program)
-                '(5 0)))
+                '(2 5)))
+
+(test-case "shift-right-r0 shifts bit 0 into the carry"
+  (reset-program!)
+  (do (set-r0 5) (shift-right-r0) (store-carry-in-r1))
+  (check-equal? (run-xorm xorm-program) '(2 1)))
 
 ;; Hand-written programs are in emission order, the same order `emit` stores.
 (test-case "runtime masks wide constant loads"
