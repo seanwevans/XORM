@@ -41,6 +41,20 @@ $ cd XORM
 No additional packages are required – all files run with the default
 Racket distribution.
 
+## Program representation
+
+`xorm-program` holds the compiled program as a list of primitive instructions
+in **emission order**: the first instruction emitted is the first executed.
+Every consumer reads it in that same order — `run-xorm` executes it, and
+`decompile-xorm` (in `mrox.rkt`) reads it back. Nothing needs to reverse it.
+
+```racket
+(reset-program!)
+(do (set-r0 3) (inc-r0))
+xorm-program              ; => ((← R0) ⊕ (← 3) ⊕ (← 1) ⊕)
+(run-xorm xorm-program)   ; => (2 1)
+```
+
 ## Macros
 
 The language is built entirely from macros that expand to the primitive
