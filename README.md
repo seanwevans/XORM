@@ -1,18 +1,37 @@
 # XORM (⊕M)
 <img width="256" alt="\oplus" src="https://github.com/user-attachments/assets/acf232dd-e236-4637-8126-728d10831198" />
 
-XORM is a tiny DSL with two 8‑bit registers (`R1` and `R0`).  Programs are
-written in terms of macros that expand to a small set of primitive
-instructions executed by `run-xorm`.  Originally only XOR was available;
-the machine now also exposes helper primitives for computing carries,
-bitwise logic and addition so that `add-r0-r1` can perform genuine
-8‑bit arithmetic.  Running a program produces a list of the final values
-of `R0` and `R1`.
+XORM is a tiny DSL in which macros are the only abstraction.  Programs are
+written as macros that expand to a small set of primitive instructions, which
+`run-xorm` executes.  Running a program produces the final values of `R0` and
+`R1`.
 
-`XORM` (`⊕M`) is just xor, macros and two abstract 8-bit registers: `R1`
-and `R0`.  Macros are the only abstraction allowed.  The runtime supports
-`⊕` along with helper instructions for addition (`ADD` plus carry control)
-and basic bitwise logic.
+## Machine model
+
+Two registers is the headline, and they are the only state a program names
+directly — but they are not quite the whole machine.  For the record:
+
+| State | Role |
+| --- | --- |
+| `R0`, `R1` | two 8‑bit registers, addressable by every macro |
+| `carry` | a flag written by `ADD` and `SHR`; read it with `store-carry-in-r1` |
+| `temp` | a one‑byte scratch slot used by `swap`, not otherwise addressable |
+
+The complete instruction set:
+
+| Instruction | Effect |
+| --- | --- |
+| `⊕` | `R0 ← R0 ⊕ R1` |
+| `AND` / `OR` | `R0 ← R0 ∧ R1` / `R0 ← R0 ∨ R1` |
+| `ADD` | `R0 ← R0 + R1 + carry`, `carry ← overflow` |
+| `SHR` | `carry ← bit 0 of R0`, then `R0 ← R0 >> 1` |
+| `(← v)` | `R1 ← v`, where `v` is a byte or a register name |
+| `(set-carry c)` | `carry ← c`, for `c` in `{0, 1}` |
+| `carry->r1` | `R1 ← carry` |
+| `store-r1` | `temp ← R1` |
+| `load-r0-from-temp` | `R0 ← temp` |
+
+Everything else in the language is a macro over those nine.
 
 To use the DSL in another Racket file:
 
@@ -29,8 +48,9 @@ To use the DSL in another Racket file:
 
 ## Setup
 
-1. Install [Racket](https://racket-lang.org/) (version 8 or newer).  The
-   `raco` command from this installation is used to run the test suite.
+1. Install [Racket](https://racket-lang.org/).  CI covers 8.10 and current
+   stable; anything in that range should work.  The `raco` command from this
+   installation is used to run the test suite.
 2. Clone this repository and enter the directory.
 
 ```
@@ -39,7 +59,8 @@ $ cd XORM
 ```
 
 No additional packages are required – all files run with the default
-Racket distribution.
+Racket distribution.  The library itself depends only on `base`; `rackunit`
+is needed just to run the tests.
 
 ## Program representation
 
@@ -92,7 +113,7 @@ The language is built entirely from macros that expand to the primitive
 - `set-carry` / `clear-carry` – control the carry flag used by `ADD`.
 - `store-carry-in-r1` – expose the carry flag to software.
 - `shift-left-r0` / `shift-right-r0` – shift `R0` one bit left or right.  The bit shifted out lands in the carry.  `shift-left-r0` clobbers `R1`; `shift-right-r0` does not.
-- `<<` / `>>` – compile‑time helpers that shift numeric constants.
+- `<<` / `>>` – compile‑time helpers that double or halve a numeric *literal*.  They emit nothing and do not touch `R1`; the register-level shifts are `shift-left-r0` and `shift-right-r0`.
 
 ### How the arithmetic macros are built
 

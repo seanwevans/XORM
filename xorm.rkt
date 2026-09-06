@@ -1,28 +1,36 @@
 #lang racket
 
-(require rnrs/arithmetic/bitwise-6)
 (require (for-syntax syntax/parse))
 
 
 ;; ============================================================================
 ;; XORM DSL
 ;;
-;; XORM is a language with two 8‑bit registers (R0 and R1) and a single
-;; runtime instruction: XOR, which computes:
-;;    R0 ← R0 ⊕ R1
+;; Macros are the only abstraction; the machine underneath stays small.
 ;;
-;; This minimal DSL compiles high-level macros into a sequence of runtime
-;; instructions, collected in the global variable `xorm-program`.
+;; State
+;;   R0, R1   two 8-bit registers, the only state a program names directly
+;;   carry    a flag, written by ADD and SHR, readable via `carry->r1`
+;;   temp     a one-byte scratch slot used by `swap`, not otherwise addressable
+;;
+;; Instructions
+;;   ⊕                    R0 ← R0 ⊕ R1
+;;   AND, OR              R0 ← R0 ∧ R1, R0 ← R0 ∨ R1
+;;   ADD                  R0 ← R0 + R1 + carry, carry ← overflow
+;;   SHR                  carry ← bit 0 of R0, then R0 ← R0 >> 1
+;;   (← v)                R1 ← v, where v is a byte or a register name
+;;   (set-carry c)        carry ← c, for c in {0, 1}
+;;   carry->r1            R1 ← carry
+;;   store-r1             temp ← R1
+;;   load-r0-from-temp    R0 ← temp
+;;
+;; Everything else in this file is a macro that expands to those.  Programs are
+;; collected in `xorm-program` in emission order.
 ;; ============================================================================
 
 
 ;; the XORM program in emission order (first emitted, first executed)
 (define xorm-program '())
-
-
-;; register constants used by macros
-(define R0 'R0)
-(define R1 'R1)
 
 ;; Export DSL constructs
 (provide
@@ -350,7 +358,11 @@
        (clear-carry)
        (emit 'ADD))]))
 
-;; Shift R1 left by 1 bit
+;; <<: compile-time helper that doubles a numeric literal, masked to 8 bits.
+;;
+;; This does not touch R1 or emit anything -- it is arithmetic on a constant,
+;; for writing things like `(← (<< 3))`.  A non-numeric argument is passed
+;; through unchanged.  The register-level shift is `shift-left-r0`.
 (define-syntax (<< stx)
   (syntax-parse stx
     [(_ val)
@@ -389,7 +401,10 @@
      (begin
        (emit 'SHR))]))
 
-;; Shift R1 right by 1 bit
+;; >>: compile-time helper that halves a numeric literal.
+;;
+;; The constant-folding counterpart of `<<`; see the note there.  The
+;; register-level shift is `shift-right-r0`.
 (define-syntax (>> stx)
   (syntax-parse stx
     [(_ val)
