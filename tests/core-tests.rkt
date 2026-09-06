@@ -1,7 +1,6 @@
 #lang racket
 (require rackunit
-         "../xorm.rkt"
-         "runtime-tests.rkt")
+         "../xorm.rkt")
 
 ;; Test swap macro instruction sequence
 (test-case "swap expands correctly"
@@ -51,7 +50,10 @@
                 '(SHR))
   )
 
-;; Provide tests for raco test
-(provide (all-defined-out)
-         (all-from-out "runtime-tests.rkt"))
+;; Provide tests for raco test.
+;;
+;; This used to re-provide runtime-tests.rkt as well, which made `raco test
+;; tests` execute that file twice -- once on its own and once through here --
+;; and double-count every failure it reported.
+(provide (all-defined-out))
 

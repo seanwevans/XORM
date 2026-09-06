@@ -1,8 +1,7 @@
 name: CI
 
-# Run on every branch and every pull request, whatever its base.  The previous
-# `branches: [main, master]` filter meant work on a stacked branch (or a PR
-# targeting anything other than main) got no CI at all.
+# Run on every branch and every pull request, whatever its base.  A
+# `branches:` filter here means work on a stacked branch gets no CI at all.
 on:
   push:
   pull_request:
@@ -10,11 +9,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest release we claim to support and the current stable one.
+        # `apt-get install racket` pinned us to whatever Ubuntu happened to
+        # ship, which was neither a documented floor nor a current version.
+        racket-version: ['8.10', 'stable']
+    name: test (Racket ${{ matrix.racket-version }})
     steps:
       - uses: actions/checkout@v4
-      - name: Install Racket
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y racket
+      - uses: Bogdanp/setup-racket@v1.15
+        with:
+          version: ${{ matrix.racket-version }}
+          variant: 'CS'
       - name: Run tests
         run: raco test tests

@@ -1,0 +1,6 @@
+# Racket bytecode caches
+compiled/
+**/compiled/
+
+# Package/build output
+doc/
