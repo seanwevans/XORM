@@ -71,15 +71,22 @@
 
 ;; Run a XORM program given in emission order -- the order `emit` stores it in,
 ;; and the same order `decompile-xorm` accepts.
-(define (run-xorm prog)
+;;
+;; The machine starts zeroed unless an initial state is supplied.  The keyword
+;; arguments exist so a caller can drive a program from every point in the
+;; state space rather than only from the origin; tests/exhaustive-tests.rkt
+;; uses them to check each macro against a reference model over all 8-bit
+;; inputs.  Initial values are masked and normalised exactly like computed
+;; ones, so no program can be started from a state it could not reach.
+(define (run-xorm prog #:r0 [r0-init 0] #:r1 [r1-init 0] #:carry [carry-init 0])
 
   (define (mask-byte v)
     (bitwise-and v #xFF))
 
-  (define R0 0)
-  (define R1 0)
+  (define R0 (mask-byte r0-init))
+  (define R1 (mask-byte r1-init))
   (define temp 0)
-  (define carry 0)
+  (define carry (if (equal? carry-init 0) 0 1))
   (for-each (lambda (inst)
               (cond
                 [(eq? inst '⊕)

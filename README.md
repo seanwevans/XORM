@@ -132,6 +132,19 @@ Racket you can execute all tests with:
 $ raco test tests
 ```
 
+Alongside the hand-written cases, `tests/exhaustive-tests.rkt` checks every
+macro against an independent reference model at **every input it can be
+given**.  The machine's whole architectural state is two 8‑bit registers and a
+carry flag, so the space is small enough to enumerate outright rather than
+sample — each macro is run from all 65536 `(R0, R1)` starting states and its
+result and carry compared against a Racket-level model.  The whole sweep takes
+about a second.
+
+This matters because the failure it catches is the one that actually shipped:
+`inc-r0` and `dec-r0` were implemented as `xor 1`, which is correct for exactly
+the inputs the hand-written tests happened to use and wrong everywhere else.
+No single example distinguishes those; 65536 of them do.
+
 Running `xorm.rkt` and `mrox.rkt` directly is still useful for quick
 experimentation:
 
