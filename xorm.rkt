@@ -37,7 +37,7 @@
 (define (reset-program!)
   (set! xorm-program '()))
 
-;; append an instruction to the program (preserves emission order)
+;; instruction validation (see `emit` below)
 (define (validate-inst inst)
   (when (and (list? inst)
              (equal? (first inst) '←))
@@ -57,11 +57,20 @@
               (format "← expected a register reference or integer constant, got ~a"
                       val))])))
 
+;; Append an instruction to the program.
+;;
+;; The program is kept in emission order: the first instruction emitted is the
+;; first executed, and that is the order every consumer -- `run-xorm`,
+;; `decompile-xorm`, the tests -- reads it in.  Appending is O(n) per
+;; instruction rather than O(1), but XORM programs are tens of instructions
+;; long, and one unambiguous ordering is worth far more here than the
+;; asymptotics.
 (define (emit inst)
   (validate-inst inst)
-  (set! xorm-program (cons inst xorm-program)))
+  (set! xorm-program (append xorm-program (list inst))))
 
-;; run a XORM program
+;; Run a XORM program given in emission order -- the order `emit` stores it in,
+;; and the same order `decompile-xorm` accepts.
 (define (run-xorm prog)
 
   (define (mask-byte v)
@@ -103,7 +112,7 @@
                 [else
                  (error 'run-xorm
                         (format "Unknown instruction in run-xorm: ~v" inst))]))
-            (reverse prog))
+            prog)
   (list R0 R1))
 
 ;; ⊕: The only runtime instruction: R0 ← R0 ⊕ R1
