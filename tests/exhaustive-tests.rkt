@@ -56,7 +56,7 @@
                         (length mismatches))))
 
 (define-syntax-rule (compiled op ...)
-  (let () (reset-program!) (do op ...) xorm-program))
+  (let () (reset-program!) (seq op ...) xorm-program))
 
 ;; ---------------------------------------------------------------------------
 ;; Bitwise primitives

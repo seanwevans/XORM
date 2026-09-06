@@ -20,8 +20,8 @@ To use the DSL in another Racket file:
 (require "xorm.rkt")
 
 (module+ main
-  (do (set-r0 42))
-  (do (← 13))
+  (seq (set-r0 42))
+  (seq (← 13))
   (displayln (run-xorm xorm-program)))
 ```
 
@@ -50,10 +50,28 @@ Every consumer reads it in that same order — `run-xorm` executes it, and
 
 ```racket
 (reset-program!)
-(do (set-r0 3) (inc-r0))
-xorm-program              ; => ((← R0) ⊕ (← 3) ⊕ (← 1) ⊕)
-(run-xorm xorm-program)   ; => (2 1)
+(seq (set-r0 3) (inc-r0))
+xorm-program              ; => ((← R0) ⊕ (← 3) ⊕ (← 1) (set-carry 0) ADD)
+(run-xorm xorm-program)   ; => (4 1)
 ```
+
+## Validity
+
+`emit` and `run-xorm` share one definition of what a XORM instruction is, so a
+program that can be built can be run and vice versa.  Anything else is
+rejected, with the whole program checked before any of it executes.
+
+Constants written as literals are checked during macro expansion, so the error
+points at the offending source rather than surfacing when the module runs:
+
+```
+> (seq (← 300))
+←: constant 300 is out of range for an 8-bit register (0..255)
+  at: 300
+```
+
+Values only known at run time are still checked by `emit` when the instruction
+is appended.
 
 ## Macros
 
@@ -62,8 +80,8 @@ The language is built entirely from macros that expand to the primitive
 
 - `xor` – perform `R0 ← R0 ⊕ R1`.
 - `← c` – set `R1` to the constant or register `c`.
-- `set-r0 c` – load the constant `c` into `R0` **and overwrite `R1` with `c`**.
-- `do` – evaluate a sequence of operations.
+- `set-r0 c` – load the constant `c` into `R0` **and overwrite `R1` with `c`**.  Also accepts a register: `(set-r0 'R1)` moves `R1` into `R0`, and `(set-r0 'R0)` is a no-op.  The register forms leave `R1` alone.
+- `seq` – evaluate a sequence of operations.  (This was called `do`, which shadowed Racket's own iteration form for anyone requiring the module.)
 - `swap` – exchange the values of `R0` and `R1`.
 - `clear-r0` / `clear-r1` – set the respective register to zero (`clear-r0` also leaves `R1 = 0` because it expands through `set-r0`).
 - `inc-r0` / `dec-r0` – add or subtract 1 from `R0` with 8‑bit wrap-around.  Both clobber `R1`.
@@ -109,15 +127,17 @@ program and register values.
 $ racket xorm.rkt
 ```
 
-You can modify the sequence of `(do ...)` forms at the end of the file to
+You can modify the sequence of `(seq ...)` forms at the end of the file to
 experiment with the macros.  Each macro emits primitive instructions that
 are stored in `xorm-program` and executed by `run-xorm`.
 
 ### `mrox.rkt`
 
-`mrox.rkt` is a very small "decompiler" that attempts to turn a sequence
-of primitive instructions back into the higher level macros.  Running the
-file will print the example program and the decompiled form:
+`mrox.rkt` is a very small "decompiler" that turns a sequence of primitive
+instructions back into the higher level macros, operands included — its output
+recompiles to the instructions it came from, which the test suite checks
+directly.  Running the file prints the example program and the decompiled
+form:
 
 ```
 $ racket mrox.rkt

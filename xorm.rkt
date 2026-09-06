@@ -27,7 +27,7 @@
 ;; Export DSL constructs
 (provide
   xorm-program emit run-xorm
-  xor ← set-r0 do swap clear-r0 clear-r1 inc-r0 dec-r0
+  xor ← set-r0 seq swap clear-r0 clear-r1 inc-r0 dec-r0
   copy-to-r1 not-r0 and-r0-r1 or-r0-r1 add-r0-r1
   shift-left-r0 shift-right-r0 << >>
   set-carry clear-carry store-carry-in-r1
@@ -37,25 +37,55 @@
 (define (reset-program!)
   (set! xorm-program '()))
 
-;; instruction validation (see `emit` below)
-(define (validate-inst inst)
-  (when (and (list? inst)
-             (equal? (first inst) '←))
-    (define val (second inst))
+;; ---------------------------------------------------------------------------
+;; The instruction set
+;;
+;; One definition of what a XORM instruction is, consulted by both `emit` and
+;; `run-xorm`.  Previously the two disagreed: `emit` checked only `←` forms and
+;; let anything else through, so `(emit 'BOGUS)` was accepted and only blew up
+;; later at run time; and `run-xorm` silently masked an out-of-range constant
+;; that `emit` would have rejected outright.  A program was therefore neither
+;; guaranteed runnable because it was built, nor guaranteed valid because it
+;; ran.
+;; ---------------------------------------------------------------------------
+
+;; Instructions taking no operand.
+(define nullary-instructions
+  '(⊕ AND OR ADD SHR carry->r1 store-r1 load-r0-from-temp))
+
+(define (byte? v) (and (exact-integer? v) (<= 0 v 255)))
+(define (register? v) (or (eq? v 'R0) (eq? v 'R1)))
+
+(define (valid-instruction? inst)
+  (cond
+    [(symbol? inst) (and (memq inst nullary-instructions) #t)]
+    [(and (list? inst) (= (length inst) 2))
+     (define op (first inst))
+     (define val (second inst))
+     (cond
+       [(eq? op '←) (or (register? val) (byte? val))]
+       [(eq? op 'set-carry) (or (equal? val 0) (equal? val 1))]
+       [else #f])]
+    [else #f]))
+
+;; Raise a descriptive error for anything `valid-instruction?` rejects.  `who`
+;; names the caller so the message points at `emit` or `run-xorm` as
+;; appropriate.
+(define (check-instruction who inst)
+  (unless (valid-instruction? inst)
     (cond
-      [(or (eq? val 'R0) (eq? val 'R1))
-       (void)]
-      [(number? val)
-       (unless (exact-integer? val)
-         (error 'emit
-                (format "← expected an integer constant, got ~a" val)))
-       (unless (<= 0 val 255)
-         (error 'emit
-                (format "← constant ~a out of range 0..255" val)))]
+      [(and (list? inst) (= (length inst) 2) (eq? (first inst) '←))
+       (define val (second inst))
+       (if (exact-integer? val)
+           (error who (format "← constant ~a out of range 0..255" val))
+           (error who
+                  (format "← expected a register reference or integer constant, got ~a"
+                          val)))]
+      [(and (list? inst) (= (length inst) 2) (eq? (first inst) 'set-carry))
+       (error who (format "set-carry expected 0 or 1, got ~a" (second inst)))]
       [else
-       (error 'emit
-              (format "← expected a register reference or integer constant, got ~a"
-                      val))])))
+       (error who (format "unknown instruction: ~v" inst))]))
+  inst)
 
 ;; Append an instruction to the program.
 ;;
@@ -66,7 +96,7 @@
 ;; long, and one unambiguous ordering is worth far more here than the
 ;; asymptotics.
 (define (emit inst)
-  (validate-inst inst)
+  (check-instruction 'emit inst)
   (set! xorm-program (append xorm-program (list inst))))
 
 ;; Run a XORM program given in emission order -- the order `emit` stores it in,
@@ -87,6 +117,12 @@
   (define R1 (mask-byte r1-init))
   (define temp 0)
   (define carry (if (equal? carry-init 0) 0 1))
+
+  ;; Reject the whole program before executing any of it, using the same
+  ;; definition `emit` enforces.  A hand-written program now fails the same way
+  ;; a macro-built one would, instead of being quietly masked into range.
+  (for-each (lambda (inst) (check-instruction 'run-xorm inst)) prog)
+
   (for-each (lambda (inst)
               (cond
                 [(eq? inst '⊕)
@@ -118,12 +154,13 @@
                       (equal? (first inst) '←))
                  (define val (second inst))
                  (cond
-                   [(eq? val 'R0) (set! R1 (mask-byte R0))]
-                   [(eq? val 'R1) (set! R1 (mask-byte R1))]
-                   [else (set! R1 (mask-byte val))])]
+                   [(eq? val 'R0) (set! R1 R0)]
+                   [(eq? val 'R1) (void)]
+                   [else (set! R1 val)])]
                 [else
+                 ;; Unreachable: the program was checked above.
                  (error 'run-xorm
-                        (format "Unknown instruction in run-xorm: ~v" inst))]))
+                        (format "unknown instruction: ~v" inst))]))
             prog)
   (list R0 R1))
 
@@ -135,26 +172,67 @@
         (emit
           '⊕))]))
 
-;; ←: sets R1 to a constant
-(define-syntax ←
-  (syntax-rules ()
+;; ←: sets R1 to a constant or the value of a register
+;;
+;; A literal constant is range-checked at compile time, so `(← 300)` is a
+;; syntax error reported at the offending expression rather than an exception
+;; raised when the enclosing module runs.  Non-literal arguments are still
+;; checked by `emit`.
+(define-syntax (← stx)
+  (syntax-parse stx
+    [(_ c:exact-integer)
+     #:when (not (<= 0 (syntax-e #'c) 255))
+     (raise-syntax-error
+      '← (format "constant ~a is out of range for an 8-bit register (0..255)"
+                 (syntax-e #'c))
+      stx #'c)]
     [(_ c)
-      (begin
-        (emit
-          (list '← c)))]))
+     #'(emit (list '← c))]))
 
-;; set-r0: sets R0 to a constant (clobbers R1)
-(define-syntax set-r0
-  (syntax-rules ()
+;; set-r0: sets R0 to a constant or to the contents of a register
+;;
+;; The constant form clears R0 by xoring it with itself and then applies the
+;; constant, which leaves R1 holding that same constant.
+;;
+;; The register forms were documented but never worked: `(set-r0 'R0)`
+;; expanded to the constant sequence with the register symbol substituted, so
+;; it cleared R0 and then xored it with itself again, always yielding 0.  They
+;; are now handled separately and, unlike the constant form, leave R1 alone:
+;;
+;;   (set-r0 'R0)  is a no-op -- R0 already holds R0, so nothing is emitted
+;;   (set-r0 'R1)  moves R1 into R0 through the temp slot
+(define-syntax (set-r0 stx)
+  (syntax-parse stx
+    #:literals (quote)
+    [(_ (quote reg))
+     #:when (eq? (syntax-e #'reg) 'R0)
+     #'(void)]
+    [(_ (quote reg))
+     #:when (eq? (syntax-e #'reg) 'R1)
+     #'(begin
+         (emit 'store-r1)
+         (emit 'load-r0-from-temp))]
+    [(_ (quote reg))
+     (raise-syntax-error 'set-r0
+                         (format "unknown register ~a (expected 'R0 or 'R1)"
+                                 (syntax-e #'reg))
+                         stx #'reg)]
+    [(_ c:exact-integer)
+     #:when (not (<= 0 (syntax-e #'c) 255))
+     (raise-syntax-error
+      'set-r0 (format "constant ~a is out of range for an 8-bit register (0..255)"
+                      (syntax-e #'c))
+      stx #'c)]
     [(_ c)
-      (begin
-        (← 'R0)   ; Copy current R0 into R1
-        (xor)     ; Clear R0 by xoring it with itself
-        (← c)     ; Load the requested constant
-        (xor))])) ; Apply it to R0; R1 remains c
+     #'(begin (← 'R0) (xor) (← c) (xor))]))
 
-;; run a list of operations
-(define-syntax do
+;; seq: run a sequence of operations
+;;
+;; This was called `do`, which shadowed `racket`'s own iteration form for
+;; anyone who required this module -- `(do ((i 0 (add1 i))) ...)` became an
+;; unbound identifier.  `seq` is free in `racket` and reads at least as well
+;; here.
+(define-syntax seq
   (syntax-rules ()
     [(_ op ...)
       (begin
@@ -240,11 +318,15 @@
        (emit 'OR))]))
 
 ;; set-carry: Set the carry flag (0 or 1)
-(define-syntax set-carry
-  (syntax-rules ()
+(define-syntax (set-carry stx)
+  (syntax-parse stx
+    [(_ c:exact-integer)
+     #:when (not (memv (syntax-e #'c) '(0 1)))
+     (raise-syntax-error
+      'set-carry (format "carry must be 0 or 1, got ~a" (syntax-e #'c))
+      stx #'c)]
     [(_ c)
-     (begin
-       (emit (list 'set-carry c)))]))
+     #'(emit (list 'set-carry c))]))
 
 ;; clear-carry: Convenience wrapper for `(set-carry 0)`
 (define-syntax clear-carry
@@ -320,22 +402,22 @@
 ;; Example usage when running this file directly.
 (module+ main
   (reset-program!)
-  (do (set-r0 5))
-  (do (inc-r0))
+  (seq (set-r0 5))
+  (seq (inc-r0))
   (displayln (list 'inc-result (run-xorm xorm-program)))      ; 5 + 1 = 6
 
   (reset-program!)
-  (do (set-r0 3))
-  (do (← 1))
-  (do (add-r0-r1))
+  (seq (set-r0 3))
+  (seq (← 1))
+  (seq (add-r0-r1))
   (displayln (list 'add-result (run-xorm xorm-program)))      ; 3 + 1 = 4
 
   (reset-program!)
-  (do (set-r0 5))
-  (do (shift-left-r0))
+  (seq (set-r0 5))
+  (seq (shift-left-r0))
   (displayln (list 'shl-result (run-xorm xorm-program)))      ; 5 << 1 = 10
 
   (reset-program!)
-  (do (set-r0 5))
-  (do (shift-right-r0))
+  (seq (set-r0 5))
+  (seq (shift-right-r0))
   (displayln (list 'shr-result (run-xorm xorm-program))))     ; 5 >> 1 = 2

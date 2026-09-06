@@ -12,74 +12,60 @@
 
 (provide decompile-xorm)
 
+;; Match one pattern element against one instruction.
+;;
+;; Returns a list of captured operands -- usually empty -- on success, or #f on
+;; failure.  The captures are what make the output re-compilable: recovering
+;; `set-r0` without its 42 tells you the shape of the program but not the
+;; program.
+;;
+;; Three pattern elements are wildcards and capture what they match:
+;;
+;;   NUMBER            any constant load, `(← n)`
+;;   REG               any register load, `(← R0)` or `(← R1)`
+;;   (set-carry NUMBER) any carry assignment
+;;
+;; Everything else is a literal and must match exactly.
 (define (match-instruction pattern-inst real-inst)
+  (define (load-of? pred i)
+    (and (list? i) (= (length i) 2) (eq? (first i) '←) (pred (second i))))
   (cond
-    [(equal? pattern-inst real-inst) #t]
-    
-    [(and (eq? pattern-inst 'NUMBER)
-          (list? real-inst)
-          (= (length real-inst) 2)
-          (eq? (first real-inst) '←)
-          (number? (second real-inst)))
-     #t]
-    
-    [(and (eq? pattern-inst 'REG)
-          (list? real-inst)
-          (= (length real-inst) 2)
-          (eq? (first real-inst) '←)
-          (or (eq? (second real-inst) 'R0)
-              (eq? (second real-inst) 'R1)))
-     #t]
-    
-    [(and (list? pattern-inst)
-          (= (length pattern-inst) 2)
-          (eq? (first pattern-inst) '←)
-          (number? (second pattern-inst))
-          (list? real-inst)
-          (= (length real-inst) 2)
-          (eq? (first real-inst) '←)
-          (equal? (second pattern-inst) (second real-inst)))
-     #t]
-
+    [(eq? pattern-inst 'NUMBER)
+     (and (load-of? number? real-inst) (list (second real-inst)))]
+    [(eq? pattern-inst 'REG)
+     (and (load-of? (lambda (v) (memq v '(R0 R1))) real-inst)
+          (list (second real-inst)))]
     [(and (list? pattern-inst)
           (= (length pattern-inst) 2)
           (eq? (first pattern-inst) 'set-carry)
-          (list? real-inst)
+          (eq? (second pattern-inst) 'NUMBER))
+     (and (list? real-inst)
           (= (length real-inst) 2)
-          (eq? (first real-inst) 'set-carry))
-     (let ([pattern-val (second pattern-inst)]
-           [real-val (second real-inst)])
-       (cond
-         [(eq? pattern-val 'NUMBER)
-          (number? real-val)]
-         [else
-          (equal? pattern-val real-val)]))]
-    
-    [(and (list? pattern-inst)
-          (= (length pattern-inst) 2)
-          (eq? (first pattern-inst) '←)
-          (or (eq? (second pattern-inst) 'R0)
-              (eq? (second pattern-inst) 'R1))
-          (list? real-inst)
-          (= (length real-inst) 2)
-          (eq? (first real-inst) '←)
-          (eq? (second pattern-inst) (second real-inst)))
-     #t]
-    
+          (eq? (first real-inst) 'set-carry)
+          (list (second real-inst)))]
+    [(equal? pattern-inst real-inst) '()]
     [else #f]))
 
+;; Match a whole pattern against the head of `prog`.
+;; Returns (cons instructions-consumed captured-operands), or #f.
 (define (match-sequence pattern-seq prog)
-  (let ([pattern-len (length pattern-seq)])
-    (and (>= (length prog) pattern-len)
-         (let loop ([i 0])
-           (if (= i pattern-len)
-               pattern-len  ; Successfully matched all instructions
-               (if (match-instruction (list-ref pattern-seq i) (list-ref prog i))
-                   (loop (add1 i))
-                   #f))))))
+  (define pattern-len (length pattern-seq))
+  (and (>= (length prog) pattern-len)
+       (let loop ([pats pattern-seq]
+                  [insts prog]
+                  [captures '()])
+         (if (null? pats)
+             (cons pattern-len (reverse captures))
+             (let ([m (match-instruction (car pats) (car insts))])
+               (and m
+                    (loop (cdr pats)
+                          (cdr insts)
+                          (append (reverse m) captures))))))))
 
 (define macro-patterns
   `(
+    (xor . (⊕))
+
     (inc-r0 . ((← 1) (set-carry 0) ADD))
 
     (set-r0 . ((← R0) ⊕ NUMBER ⊕))
@@ -117,32 +103,49 @@
   (let loop ([prog program]
              [result '()])
     (if (null? prog)
-        (reverse result)  ; Done processing
-        (let ([matched-pattern (find-best-match prog)])
-          (if matched-pattern
-              (let ([macro-name (car matched-pattern)]
-                    [consumed (cdr matched-pattern)])
+        (reverse result)
+        (let ([m (find-best-match prog)])
+          (if m
+              (let ([name (first m)]
+                    [consumed (second m)]
+                    [captures (third m)])
                 (loop (list-tail prog consumed)
-                      (cons macro-name result)))
-              ;; No match, keep as primitive instruction
+                      ;; A macro with operands comes back as a form, `(set-r0
+                      ;; 42)`, so the result can be fed straight back to the
+                      ;; compiler.  One without stays a bare name.
+                      (cons (if (null? captures) name (cons name captures))
+                            result)))
+              ;; No macro matched, so keep the primitive instruction as-is.
               (loop (cdr prog)
                     (cons (car prog) result)))))))
 
+;; Pick the best macro to explain the head of `prog`.
+;;
+;; The longest match wins.  On a tie the *most specific* pattern wins -- the
+;; one that had to capture fewer operands to fit.  Without that rule `clear-r0`
+;; and `(set-r0 0)` are the same four instructions and the winner is whichever
+;; one `argmax` happened to see first; the same goes for `clear-carry` against
+;; `(set-carry 0)`.
 (define (find-best-match prog)
   (define matches
-    (filter-map 
+    (filter-map
      (lambda (pattern-entry)
        (let* ([macro-name (car pattern-entry)]
               [pattern-seq (cdr pattern-entry)]
               [match-result (match-sequence pattern-seq prog)])
-         (and match-result 
-              (cons macro-name match-result))))
+         (and match-result
+              (list macro-name (car match-result) (cdr match-result)))))
      macro-patterns))
-  
-  ;; Find the pattern that consumes the most instructions
-  (if (null? matches)
-      #f
-      (argmax cdr matches)))
+
+  (define (better? a b)
+    (cond
+      [(> (second a) (second b)) #t]
+      [(< (second a) (second b)) #f]
+      [else (< (length (third a)) (length (third b)))]))
+
+  (and (pair? matches)
+       (for/fold ([best (first matches)]) ([m (rest matches)])
+         (if (better? m best) m best))))
 
 (define (pretty-print-decompiled prog)
   (for ([item prog])
