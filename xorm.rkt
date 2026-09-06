@@ -92,6 +92,11 @@
                  (define sum (+ R0 R1 carry))
                  (set! R0 (mask-byte sum))
                  (set! carry (if (> sum 255) 1 0))]
+                [(eq? inst 'SHR)
+                 ;; Logical right shift.  The bit shifted out lands in the
+                 ;; carry, mirroring the way ADD deposits its overflow there.
+                 (set! carry (bitwise-and R0 1))
+                 (set! R0 (arithmetic-shift R0 -1))]
                 [(eq? inst 'carry->r1)
                  (set! R1 carry)]
                 [(eq? inst 'store-r1)
@@ -172,31 +177,29 @@
      (begin
        (← 0))]))  ; Set R1 to 0
 
-;; inc-r0: Attempt to increment R0 by 1
+;; inc-r0: R0 ← R0 + 1, with 8-bit wrap-around
 ;;
-;; With only XOR and constant loads available this macro simply toggles the
-;; lowest bit of R0.  It does **not** implement a correct increment operation
-;; for arbitrary values.
+;; Adding 1 is just `add-r0-r1` against the constant 1.  Carry is set when the
+;; increment wraps 255 → 0.  Clobbers R1 (leaves it holding 1).
 (define-syntax inc-r0
   (syntax-rules ()
     [(_)
      (begin
-       (← 1)      ; load constant 1
-       (xor))]))  ; toggles bit 0 of R0
+       (← 1)
+       (add-r0-r1))]))
 
-;; dec-r0: Attempt to decrement R0 by 1
+;; dec-r0: R0 ← R0 - 1, with 8-bit wrap-around
 ;;
-;; This sequence is the inverse of `inc-r0` and is likewise incorrect for
-;; general subtraction.  Only XOR operations and constant loads are used.
+;; Subtracting 1 modulo 256 is the same as adding 255, so this is `add-r0-r1`
+;; against the constant 255.  Carry follows the usual "carry = NOT borrow"
+;; convention: it is set whenever the subtraction does *not* borrow, i.e. for
+;; every starting value except 0.  Clobbers R1 (leaves it holding 255).
 (define-syntax dec-r0
   (syntax-rules ()
     [(_)
      (begin
-       (← 255)    ; flip all bits
-       (xor)
-       (inc-r0)   ; try to add one to the inverted value
        (← 255)
-       (xor))]))  ; flip back
+       (add-r0-r1))]))
 
 ;; copy-to-r1: Copy value from R0 to R1
 (define-syntax copy-to-r1
@@ -267,41 +270,35 @@
          (datum->syntax stx (bitwise-and (arithmetic-shift v 1) 255))
          #'val)]))
 
-;; shift-left-r0: Placeholder left shift
+;; shift-left-r0: R0 ← R0 << 1, with 8-bit wrap-around
 ;;
-;; True shifting cannot be achieved with XOR alone.  This macro merely
-;; emits a fixed primitive sequence that resembles a shift scaffold.
+;; A left shift by one is a doubling, and doubling is `x + x`.  Copying R0 into
+;; R1 and adding therefore gives a real shift with no new primitive, and the
+;; bit shifted off the top lands in the carry for free as ADD's overflow.
+;;
+;; Note this clobbers R1, which ends up holding the *pre-shift* value of R0.
+;; `shift-right-r0` leaves R1 alone; the asymmetry is the price of deriving
+;; this one from ADD rather than adding a second shift primitive.
 (define-syntax shift-left-r0
   (syntax-rules ()
     [(_)
      (begin
-       (← 0)
-       (xor)
        (← 'R0)
-       (← 'R1)
-       (← 'R0)
-       (xor)
-       (xor)
-       (← 0)
-       (xor))]))
+       (add-r0-r1))]))
 
-;; shift-right-r0: Placeholder right shift
+;; shift-right-r0: R0 ← R0 >> 1 (logical), bit 0 shifted into the carry
 ;;
-;; Like the left shift, this macro does not actually shift bits.  It is kept
-;; for symmetry and emits an explicit primitive fallback sequence.
+;; Unlike the left shift, this one genuinely needs a new primitive.  Halving is
+;; not expressible from XOR, ADD and constant loads: the machine has no
+;; conditionals to test a bit with and no operation that moves information
+;; toward the low end of the register.  `SHR` is that primitive.
+;;
+;; Leaves R1 untouched.
 (define-syntax shift-right-r0
   (syntax-rules ()
     [(_)
      (begin
-       (← 0)
-       (xor)
-       (← 'R0)
-       (← 'R1)
-       (← 'R0)
-       (xor)
-       (xor)
-       (← 0)
-       (xor))]))
+       (emit 'SHR))]))
 
 ;; Shift R1 right by 1 bit
 (define-syntax (>> stx)
@@ -313,17 +310,25 @@
          #'val)]))
 
 
-;; Example usage when running this file directly
-;; The examples below illustrate the behaviour of the placeholder macros.  The
-;; resulting values do not correspond to real arithmetic or bitwise logic.
+;; Example usage when running this file directly.
 (module+ main
   (reset-program!)
   (do (set-r0 5))
   (do (inc-r0))
-  (displayln (list 'inc-result (run-xorm xorm-program)))
+  (displayln (list 'inc-result (run-xorm xorm-program)))      ; 5 + 1 = 6
 
   (reset-program!)
   (do (set-r0 3))
   (do (← 1))
   (do (add-r0-r1))
-  (displayln (list 'add-result (run-xorm xorm-program))))
+  (displayln (list 'add-result (run-xorm xorm-program)))      ; 3 + 1 = 4
+
+  (reset-program!)
+  (do (set-r0 5))
+  (do (shift-left-r0))
+  (displayln (list 'shl-result (run-xorm xorm-program)))      ; 5 << 1 = 10
+
+  (reset-program!)
+  (do (set-r0 5))
+  (do (shift-right-r0))
+  (displayln (list 'shr-result (run-xorm xorm-program))))     ; 5 >> 1 = 2

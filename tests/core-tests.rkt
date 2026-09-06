@@ -24,7 +24,7 @@
   (reset-program!)
   (do (inc-r0))
   (check-equal? xorm-program
-                '((← 1) ⊕))
+                '((← 1) (set-carry 0) ADD))
   )
 
 ;; Test dec-r0 macro
@@ -32,23 +32,23 @@
   (reset-program!)
   (do (dec-r0))
   (check-equal? xorm-program
-                '((← 255) ⊕ (← 1) ⊕ (← 255) ⊕))
+                '((← 255) (set-carry 0) ADD))
   )
 
-;; Test shift-left-r0 macro
+;; Test shift-left-r0 macro (a doubling, derived from ADD)
 (test-case "shift-left-r0 expands correctly"
   (reset-program!)
   (do (shift-left-r0))
   (check-equal? xorm-program
-                '((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
+                '((← R0) (set-carry 0) ADD))
   )
 
-;; Test shift-right-r0 macro
+;; Test shift-right-r0 macro (the one genuinely new primitive)
 (test-case "shift-right-r0 expands correctly"
   (reset-program!)
   (do (shift-right-r0))
   (check-equal? xorm-program
-                '((← 0) ⊕ (← R0) (← R1) (← R0) ⊕ ⊕ (← 0) ⊕))
+                '(SHR))
   )
 
 ;; Provide tests for raco test

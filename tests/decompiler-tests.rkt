@@ -32,7 +32,7 @@
   (define prog xorm-program)
   (check-equal? (decompile-xorm prog)
                 '(set-r0 not-r0 clear-r1 add-r0-r1 swap dec-r0))
-  (check-equal? (run-xorm prog) '(1 255))
+  (check-equal? (run-xorm prog) '(255 255))
   ;; Reversing the program must change what it computes; if this ever stops
   ;; holding, the two orderings have quietly become interchangeable again.
   (check-not-equal? (run-xorm (reverse prog)) (run-xorm prog)))
